@@ -19,6 +19,10 @@ homeassistant_api: false
 map:
   - share:rw
   - config:rw
+ports:
+  3000/tcp: 7544
+ports_description:
+  3000/tcp: "Weboberfläche (Direktzugriff über Port 7544)"
 options:
   database_path: "/share/rwrfolio/db/rwrfolio.db"
   imported_csv_path: "/share/rwrfolio/imported"

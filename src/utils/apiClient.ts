@@ -8,9 +8,25 @@ export interface StorageInfo {
   archivedFiles: { name: string; size: number; modified: string }[];
 }
 
+/**
+ * Returns the correct API endpoint, respecting Home Assistant Ingress subpaths
+ * e.g. /api/hassio_ingress/token/api/... or direct /api/...
+ */
+export function getApiUrl(endpoint: string): string {
+  const cleanEndpoint = endpoint.startsWith('/') ? endpoint.slice(1) : endpoint;
+  if (typeof window !== 'undefined' && window.location) {
+    const pathname = window.location.pathname;
+    if (pathname && pathname.includes('/api/hassio_ingress/')) {
+      const basePath = pathname.endsWith('/') ? pathname : pathname + '/';
+      return `${basePath}${cleanEndpoint}`;
+    }
+  }
+  return `/${cleanEndpoint}`;
+}
+
 export async function fetchTransactionsFromApi(): Promise<Transaction[] | null> {
   try {
-    const res = await fetch('/api/transactions');
+    const res = await fetch(getApiUrl('api/transactions'));
     if (res.ok) {
       const json = await res.json();
       if (json.success && Array.isArray(json.data)) {
@@ -25,7 +41,7 @@ export async function fetchTransactionsFromApi(): Promise<Transaction[] | null> 
 
 export async function saveTransactionToApi(tx: Transaction): Promise<boolean> {
   try {
-    const res = await fetch('/api/transactions', {
+    const res = await fetch(getApiUrl('api/transactions'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(tx),
@@ -43,7 +59,7 @@ export async function bulkImportTransactionsToApi(
   fileName?: string
 ): Promise<{ success: boolean; inserted?: number; archivedPath?: string | null }> {
   try {
-    const res = await fetch('/api/transactions/bulk', {
+    const res = await fetch(getApiUrl('api/transactions/bulk'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ transactions, csvRawText, fileName }),
@@ -61,7 +77,7 @@ export async function bulkImportTransactionsToApi(
 
 export async function fetchStorageInfo(): Promise<StorageInfo | null> {
   try {
-    const res = await fetch('/api/storage');
+    const res = await fetch(getApiUrl('api/storage'));
     if (res.ok) {
       const json = await res.json();
       if (json.success) {
@@ -76,7 +92,7 @@ export async function fetchStorageInfo(): Promise<StorageInfo | null> {
 
 export async function deleteTransactionFromApi(id: string): Promise<boolean> {
   try {
-    const res = await fetch(`/api/transactions/${encodeURIComponent(id)}`, {
+    const res = await fetch(getApiUrl(`api/transactions/${encodeURIComponent(id)}`), {
       method: 'DELETE',
     });
     return res.ok;
@@ -88,7 +104,7 @@ export async function deleteTransactionFromApi(id: string): Promise<boolean> {
 
 export async function bulkDeleteTransactionsFromApi(ids: string[]): Promise<boolean> {
   try {
-    const res = await fetch('/api/transactions/bulk-delete', {
+    const res = await fetch(getApiUrl('api/transactions/bulk-delete'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ ids }),
@@ -102,7 +118,7 @@ export async function bulkDeleteTransactionsFromApi(ids: string[]): Promise<bool
 
 export async function resetDatabaseToSampleOnApi(): Promise<Transaction[] | null> {
   try {
-    const res = await fetch('/api/reset', {
+    const res = await fetch(getApiUrl('api/reset'), {
       method: 'POST',
     });
     if (res.ok) {
@@ -119,7 +135,7 @@ export async function resetDatabaseToSampleOnApi(): Promise<Transaction[] | null
 
 export async function fetchPricesFromApi(): Promise<Record<string, number> | null> {
   try {
-    const res = await fetch('/api/prices');
+    const res = await fetch(getApiUrl('api/prices'));
     if (res.ok) {
       const json = await res.json();
       if (json.success && typeof json.data === 'object') {
@@ -134,7 +150,7 @@ export async function fetchPricesFromApi(): Promise<Record<string, number> | nul
 
 export async function savePricesToApi(prices: Record<string, number>): Promise<boolean> {
   try {
-    const res = await fetch('/api/prices', {
+    const res = await fetch(getApiUrl('api/prices'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(prices),
@@ -148,7 +164,7 @@ export async function savePricesToApi(prices: Record<string, number>): Promise<b
 
 export async function fetchSettingsFromApi(): Promise<AppSettings | null> {
   try {
-    const res = await fetch('/api/settings');
+    const res = await fetch(getApiUrl('api/settings'));
     if (res.ok) {
       const json = await res.json();
       if (json.success && json.data) {
@@ -163,7 +179,7 @@ export async function fetchSettingsFromApi(): Promise<AppSettings | null> {
 
 export async function saveSettingsToApi(settings: AppSettings): Promise<boolean> {
   try {
-    const res = await fetch('/api/settings', {
+    const res = await fetch(getApiUrl('api/settings'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(settings),
@@ -177,7 +193,7 @@ export async function saveSettingsToApi(settings: AppSettings): Promise<boolean>
 
 export async function sendTestEmailApi(emailConfig: any): Promise<{ success: boolean; message?: string }> {
   try {
-    const res = await fetch('/api/settings/test-email', {
+    const res = await fetch(getApiUrl('api/settings/test-email'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ emailConfig }),
