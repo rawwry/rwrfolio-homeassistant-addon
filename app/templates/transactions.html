@@ -1,0 +1,163 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="bg-slate-900/80 rounded-2xl border border-slate-800/80 p-5 shadow-xl space-y-5">
+  
+  <!-- Header with Actions -->
+  <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div>
+      <h2 class="text-lg font-bold text-white flex items-center space-x-2">
+        <i data-lucide="receipt" class="w-5 h-5 text-indigo-400"></i>
+        <span>Transaktionshistorie</span>
+      </h2>
+      <p class="text-xs text-slate-400">
+        {{ total_count }} Transaktionen in der SQLite Datenbank erfasst
+      </p>
+    </div>
+
+    <div class="flex flex-wrap items-center gap-2">
+      <button onclick="openModal('modal-add-transaction')" class="inline-flex items-center space-x-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white shadow-md shadow-indigo-600/20 transition-all cursor-pointer">
+        <i data-lucide="plus" class="w-3.5 h-3.5"></i>
+        <span>Kauf erfassen</span>
+      </button>
+
+      <a href="/import" class="inline-flex items-center space-x-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition-colors">
+        <i data-lucide="upload" class="w-3.5 h-3.5 text-emerald-400"></i>
+        <span>CSV / Excel Import</span>
+      </a>
+
+      <a href="/export/csv" class="inline-flex items-center space-x-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition-colors">
+        <i data-lucide="download" class="w-3.5 h-3.5 text-blue-400"></i>
+        <span>CSV Export</span>
+      </a>
+    </div>
+  </div>
+
+  <!-- Filter & Search Toolbar -->
+  <form action="/transactions" method="GET" class="grid grid-cols-1 sm:grid-cols-4 gap-3 bg-slate-950/60 p-3.5 rounded-xl border border-slate-800 text-xs">
+    <!-- Search text -->
+    <div class="sm:col-span-2 relative">
+      <input type="text" name="search" value="{{ current_search }}" placeholder="Suchen nach Beschreibung, Notizen, ID..." class="w-full bg-slate-900 border border-slate-700 rounded-lg pl-8 pr-3 py-2 text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500">
+      <i data-lucide="search" class="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5"></i>
+    </div>
+
+    <!-- Asset Filter -->
+    <div>
+      <select name="asset" onchange="this.form.submit()" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 focus:outline-none focus:border-indigo-500">
+        <option value="ALL" {% if current_asset == 'ALL' %}selected{% endif %}>Alle Coins &amp; Assets</option>
+        {% for a in available_assets %}
+        <option value="{{ a }}" {% if current_asset == a %}selected{% endif %}>{{ a }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <!-- Type Filter -->
+    <div>
+      <select name="type_filter" onchange="this.form.submit()" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 focus:outline-none focus:border-indigo-500">
+        <option value="ALL" {% if current_type == 'ALL' %}selected{% endif %}>Alle Transaktionstypen</option>
+        <option value="BUY" {% if current_type == 'BUY' %}selected{% endif %}>BUY (Kauf)</option>
+        <option value="SELL" {% if current_type == 'SELL' %}selected{% endif %}>SELL (Verkauf)</option>
+        <option value="REWARD" {% if current_type == 'REWARD' %}selected{% endif %}>REWARD (Cashback)</option>
+        <option value="STAKE" {% if current_type == 'STAKE' %}selected{% endif %}>STAKE (Earn)</option>
+        <option value="TRANSFER" {% if current_type == 'TRANSFER' %}selected{% endif %}>TRANSFER</option>
+      </select>
+    </div>
+  </form>
+
+  <!-- Transactions Table -->
+  <div class="overflow-x-auto">
+    <table class="w-full text-left text-xs">
+      <thead>
+        <tr class="border-b border-slate-800 text-slate-400 font-semibold uppercase tracking-wider font-mono">
+          <th class="py-3 px-3">Datum (UTC)</th>
+          <th class="py-3 px-3">Typ</th>
+          <th class="py-3 px-3">Beschreibung</th>
+          <th class="py-3 px-3 text-right">Erhalten (+)</th>
+          <th class="py-3 px-3 text-right">Ausgegeben (-)</th>
+          <th class="py-3 px-3 text-right">EUR Ausgaben</th>
+          <th class="py-3 px-3">Quelle / Börse</th>
+          <th class="py-3 px-3 text-right">Aktion</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-800/60 font-mono">
+        {% for tx in transactions %}
+        <tr class="hover:bg-slate-800/40 transition-colors">
+          <td class="py-3 px-3 text-slate-400 text-[11px] whitespace-nowrap">
+            {{ tx.timestamp[:19].replace('T', ' ') }}
+          </td>
+          <td class="py-3 px-3 font-sans">
+            <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase
+              {% if tx.type == 'BUY' %}bg-emerald-500/10 text-emerald-400 border border-emerald-500/20
+              {% elif tx.type == 'SELL' %}bg-rose-500/10 text-rose-400 border border-rose-500/20
+              {% elif tx.type == 'REWARD' %}bg-amber-500/10 text-amber-400 border border-amber-500/20
+              {% else %}bg-indigo-500/10 text-indigo-400 border border-indigo-500/20{% endif %}">
+              {{ tx.type }}
+            </span>
+          </td>
+          <td class="py-3 px-3 font-sans text-slate-200">
+            <div class="font-medium">{{ tx.description }}</div>
+            {% if tx.notes %}
+              <div class="text-[10px] text-slate-500 italic">{{ tx.notes }}</div>
+            {% endif %}
+          </td>
+          <td class="py-3 px-3 text-right font-semibold text-emerald-400">
+            {% if tx.received_amount > 0 %}
+              +{{ tx.received_amount | crypto }} {{ tx.received_currency }}
+            {% else %}-{% endif %}
+          </td>
+          <td class="py-3 px-3 text-right font-semibold text-slate-300">
+            {% if tx.spent_amount > 0 %}
+              -{{ tx.spent_amount | crypto }} {{ tx.spent_currency }}
+            {% else %}-{% endif %}
+          </td>
+          <td class="py-3 px-3 text-right font-bold text-white">
+            {% if tx.native_amount > 0 %}
+              {{ tx.native_amount | eur }}
+            {% else %}-{% endif %}
+          </td>
+          <td class="py-3 px-3 font-sans text-[11px] text-slate-400">
+            {{ tx.source }}
+          </td>
+          <td class="py-3 px-3 text-right">
+            <form action="/transactions/{{ tx.id }}/delete" method="POST" onsubmit="return confirm('Transaktion unwiderruflich löschen?');" class="inline">
+              <button type="submit" class="p-1 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition-colors" title="Löschen">
+                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+              </button>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="8" class="text-center py-8 text-slate-500 font-sans">
+            Keine Transaktionen für die aktuellen Filterkriterien gefunden.
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Pagination Controls -->
+  {% if total_pages > 1 %}
+  <div class="flex items-center justify-between pt-4 border-t border-slate-800 text-xs">
+    <span class="text-slate-400">
+      Seite {{ page }} von {{ total_pages }} ({{ total_count }} Einträge)
+    </span>
+    <div class="flex items-center space-x-1">
+      {% if page > 1 %}
+      <a href="/transactions?page={{ page - 1 }}&asset={{ current_asset }}&type_filter={{ current_type }}&search={{ current_search }}" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-white">
+        &larr; Zurück
+      </a>
+      {% endif %}
+
+      {% if page < total_pages %}
+      <a href="/transactions?page={{ page + 1 }}&asset={{ current_asset }}&type_filter={{ current_type }}&search={{ current_search }}" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-white">
+        Weiter &rarr;
+      </a>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}

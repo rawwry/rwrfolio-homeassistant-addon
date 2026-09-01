@@ -1,0 +1,31 @@
+name: "rwrfolio"
+description: "Krypto Portfolio & DCA Tracker mit SQLite Datenbank und Live-Kursen"
+version: "0.3.0"
+slug: "rwrfolio"
+init: false
+arch:
+  - aarch64
+  - amd64
+  - armhf
+  - armv7
+  - i386
+startup: application
+boot: auto
+panel_icon: "mdi:chart-timeline-variant-shimmer"
+panel_title: "rwrfolio"
+ingress: true
+ingress_port: 3000
+homeassistant_api: false
+map:
+  - share:rw
+  - config:rw
+options:
+  database_path: "/share/rwrfolio/db/rwrfolio.db"
+  imported_csv_path: "/share/rwrfolio/imported"
+schema:
+  database_path: str
+  imported_csv_path: str
+environment:
+  DATABASE_PATH: "/share/rwrfolio/db/rwrfolio.db"
+  IMPORTED_CSV_PATH: "/share/rwrfolio/imported"
+  NODE_ENV: "production"

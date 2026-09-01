@@ -1,0 +1,6 @@
+{
+  "name": "rwrfolio",
+  "description": "Krypto Portfolio Tracker mit DCA-Berechnung, Live-Kursen und Transaktionsverwaltung.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

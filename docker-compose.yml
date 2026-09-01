@@ -1,0 +1,29 @@
+version: '3.8'
+
+services:
+  crypto-tracker:
+    image: python:3.12-slim
+    container_name: crypto-tracker
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./config:/config
+      - ./app:/app
+    working_dir: /app
+    environment:
+      - PYTHONUNBUFFERED=1
+      - DATABASE_PATH=/config/crypto.db
+      - TZ=Europe/Berlin
+    command: >
+      sh -c "
+        if [ ! -d '/config/venv' ]; then
+          echo '=== Initialisiere Python venv unter /config/venv ===' &&
+          python3 -m venv /config/venv
+        fi &&
+        echo '=== Aktiviere venv und installiere Abhängigkeiten ===' &&
+        . /config/venv/bin/activate &&
+        pip install --no-cache-dir fastapi==0.115.6 uvicorn[standard]==0.34.0 jinja2==3.1.5 python-multipart==0.0.20 openpyxl==3.1.5 &&
+        echo '=== Starte FastAPI Server mit Uvicorn auf Port 8000 ===' &&
+        exec uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+      "

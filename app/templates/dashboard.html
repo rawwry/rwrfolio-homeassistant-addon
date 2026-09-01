@@ -1,0 +1,271 @@
+{% extends "base.html" %}
+
+{% block content %}
+<!-- Top KPI Metric Cards -->
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+  <!-- Total Portfolio Value -->
+  <div class="p-5 rounded-2xl bg-slate-900/80 border border-slate-800/80 shadow-xl space-y-2 relative overflow-hidden group">
+    <div class="flex items-center justify-between text-slate-400">
+      <span class="text-xs font-semibold uppercase tracking-wider font-mono">Gesamtwert Portfolio</span>
+      <div class="p-2 rounded-xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+        <i data-lucide="wallet" class="w-4 h-4"></i>
+      </div>
+    </div>
+    <div class="text-2xl sm:text-3xl font-black text-white tracking-tight font-mono">
+      {{ totals.current_value_eur | eur }}
+    </div>
+    <div class="flex items-center space-x-2 text-xs">
+      <span class="px-2 py-0.5 rounded-md font-semibold {% if totals.total_pnl_eur >= 0 %}bg-emerald-500/10 text-emerald-400 border border-emerald-500/20{% else %}bg-rose-500/10 text-rose-400 border border-rose-500/20{% endif %}">
+        {{ totals.total_pnl_percentage | pct }}
+      </span>
+      <span class="text-slate-400 font-medium">Gesamt-Rendite</span>
+    </div>
+  </div>
+
+  <!-- Total Invested EUR -->
+  <div class="p-5 rounded-2xl bg-slate-900/80 border border-slate-800/80 shadow-xl space-y-2 relative overflow-hidden">
+    <div class="flex items-center justify-between text-slate-400">
+      <span class="text-xs font-semibold uppercase tracking-wider font-mono">Investiertes Fiat (EUR)</span>
+      <div class="p-2 rounded-xl bg-blue-500/10 text-blue-400 border border-blue-500/20">
+        <i data-lucide="arrow-down-right" class="w-4 h-4"></i>
+      </div>
+    </div>
+    <div class="text-2xl sm:text-3xl font-black text-slate-200 tracking-tight font-mono">
+      {{ totals.total_invested_eur | eur }}
+    </div>
+    <div class="text-xs text-slate-400">
+      Über {{ totals.total_tx_count }} Transaktionen
+    </div>
+  </div>
+
+  <!-- Profit & Loss EUR -->
+  <div class="p-5 rounded-2xl bg-slate-900/80 border border-slate-800/80 shadow-xl space-y-2 relative overflow-hidden">
+    <div class="flex items-center justify-between text-slate-400">
+      <span class="text-xs font-semibold uppercase tracking-wider font-mono">Gewinn / Verlust (P&amp;L)</span>
+      <div class="p-2 rounded-xl {% if totals.total_pnl_eur >= 0 %}bg-emerald-500/10 text-emerald-400 border border-emerald-500/20{% else %}bg-rose-500/10 text-rose-400 border border-rose-500/20{% endif %}">
+        <i data-lucide="trending-up" class="w-4 h-4"></i>
+      </div>
+    </div>
+    <div class="text-2xl sm:text-3xl font-black {% if totals.total_pnl_eur >= 0 %}text-emerald-400{% else %}text-rose-400{% endif %} tracking-tight font-mono">
+      {% if totals.total_pnl_eur >= 0 %}+{% endif %}{{ totals.total_pnl_eur | eur }}
+    </div>
+    <div class="text-xs text-slate-400">
+      Unrealisierter Saldo
+    </div>
+  </div>
+
+  <!-- Top Asset & Position Count -->
+  <div class="p-5 rounded-2xl bg-slate-900/80 border border-slate-800/80 shadow-xl space-y-2 relative overflow-hidden">
+    <div class="flex items-center justify-between text-slate-400">
+      <span class="text-xs font-semibold uppercase tracking-wider font-mono">Größte Position</span>
+      <div class="p-2 rounded-xl bg-purple-500/10 text-purple-400 border border-purple-500/20">
+        <i data-lucide="pie-chart" class="w-4 h-4"></i>
+      </div>
+    </div>
+    <div class="text-2xl sm:text-3xl font-black text-purple-300 tracking-tight">
+      {{ totals.top_asset }}
+      <span class="text-xs font-mono font-normal text-slate-400 ml-1">({{ totals.top_asset_share | round(1) }}%)</span>
+    </div>
+    <div class="text-xs text-slate-400">
+      {{ totals.asset_count }} aktive Coins im Portfolio
+    </div>
+  </div>
+</div>
+
+<!-- DCA & Asset Allocation Table -->
+<div class="bg-slate-900/80 rounded-2xl border border-slate-800/80 p-5 shadow-xl space-y-4">
+  <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+    <div>
+      <h2 class="text-base font-bold text-white flex items-center space-x-2">
+        <i data-lucide="coins" class="w-5 h-5 text-indigo-400"></i>
+        <span>Assets &amp; Dollar-Cost-Averaging (DCA)</span>
+      </h2>
+      <p class="text-xs text-slate-400">
+        Durchschnittlicher Kaufpreis, aktuelle Bestände und Allokation
+      </p>
+    </div>
+
+    <div class="flex items-center space-x-2">
+      <form action="/prices/update" method="POST" class="inline">
+        <input type="hidden" name="action" value="refresh_all">
+        <button type="submit" class="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition-colors">
+          <i data-lucide="refresh-cw" class="w-3.5 h-3.5 text-indigo-400"></i>
+          <span>Live-Preise laden</span>
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <div class="overflow-x-auto">
+    <table class="w-full text-left text-xs">
+      <thead>
+        <tr class="border-b border-slate-800 text-slate-400 font-semibold uppercase tracking-wider font-mono">
+          <th class="py-3 px-3">Asset</th>
+          <th class="py-3 px-3 text-right">Bestand</th>
+          <th class="py-3 px-3 text-right">Ø Kaufpreis (DCA)</th>
+          <th class="py-3 px-3 text-right">Aktueller Kurs</th>
+          <th class="py-3 px-3 text-right">Investiert (€)</th>
+          <th class="py-3 px-3 text-right">Aktueller Wert (€)</th>
+          <th class="py-3 px-3 text-right">P&amp;L (€ / %)</th>
+          <th class="py-3 px-3 text-right">Anteil</th>
+          <th class="py-3 px-3 text-center">Aktionen</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-800/60 font-mono">
+        {% for asset in assets %}
+        <tr class="hover:bg-slate-800/40 transition-colors">
+          <td class="py-3.5 px-3 font-sans">
+            <div class="flex items-center space-x-2.5">
+              <div class="w-7 h-7 rounded-lg bg-slate-800 border border-slate-700 flex items-center justify-center font-bold text-[11px] text-white">
+                {{ asset.symbol[:3] }}
+              </div>
+              <div>
+                <span class="font-bold text-white block">{{ asset.symbol }}</span>
+                <span class="text-[10px] text-slate-400">{{ asset.name }}</span>
+              </div>
+            </div>
+          </td>
+          <td class="py-3.5 px-3 text-right font-semibold text-slate-200">
+            {{ asset.current_balance | crypto }}
+          </td>
+          <td class="py-3.5 px-3 text-right text-indigo-300">
+            {{ asset.average_buy_price | eur(4) }}
+          </td>
+          <td class="py-3.5 px-3 text-right font-semibold text-white">
+            {{ asset.current_price | eur(4) }}
+          </td>
+          <td class="py-3.5 px-3 text-right text-slate-300">
+            {{ asset.total_invested_eur | eur }}
+          </td>
+          <td class="py-3.5 px-3 text-right font-bold text-white">
+            {{ asset.current_value_eur | eur }}
+          </td>
+          <td class="py-3.5 px-3 text-right">
+            <span class="font-bold block {% if asset.pnl_eur >= 0 %}text-emerald-400{% else %}text-rose-400{% endif %}">
+              {% if asset.pnl_eur >= 0 %}+{% endif %}{{ asset.pnl_eur | eur }}
+            </span>
+            <span class="text-[10px] font-semibold {% if asset.pnl_percentage >= 0 %}text-emerald-400{% else %}text-rose-400{% endif %}">
+              {{ asset.pnl_percentage | pct }}
+            </span>
+          </td>
+          <td class="py-3.5 px-3 text-right">
+            <div class="flex items-center justify-end space-x-1.5">
+              <span class="text-slate-300 font-semibold">{{ asset.allocation_percentage | round(1) }}%</span>
+              <div class="w-12 h-1.5 rounded-full bg-slate-800 overflow-hidden hidden sm:block">
+                <div class="h-full bg-indigo-500 rounded-full" style="width: {{ asset.allocation_percentage }}%;"></div>
+              </div>
+            </div>
+          </td>
+          <td class="py-3.5 px-3 text-center">
+            <button onclick="openPriceModal('{{ asset.symbol }}', {{ asset.current_price }})" class="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white" title="Preis manuell anpassen">
+              <i data-lucide="edit-3" class="w-3.5 h-3.5"></i>
+            </button>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Recent Transactions Snippet -->
+<div class="bg-slate-900/80 rounded-2xl border border-slate-800/80 p-5 shadow-xl space-y-4">
+  <div class="flex items-center justify-between">
+    <h3 class="text-base font-bold text-white flex items-center space-x-2">
+      <i data-lucide="clock" class="w-4 h-4 text-indigo-400"></i>
+      <span>Letzte Transaktionen</span>
+    </h3>
+    <a href="/transactions" class="text-xs font-semibold text-indigo-400 hover:text-indigo-300 transition-colors">
+      Alle Transaktionen anzeigen &rarr;
+    </a>
+  </div>
+
+  <div class="overflow-x-auto">
+    <table class="w-full text-left text-xs">
+      <thead>
+        <tr class="border-b border-slate-800 text-slate-400 font-semibold uppercase tracking-wider font-mono">
+          <th class="py-2.5 px-3">Datum (UTC)</th>
+          <th class="py-2.5 px-3">Typ</th>
+          <th class="py-2.5 px-3">Beschreibung</th>
+          <th class="py-2.5 px-3 text-right">Menge</th>
+          <th class="py-2.5 px-3 text-right">Wert / Ausgaben</th>
+          <th class="py-2.5 px-3">Quelle</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-800/60 font-mono">
+        {% for tx in recent_transactions %}
+        <tr class="hover:bg-slate-800/30 transition-colors">
+          <td class="py-2.5 px-3 text-slate-400 text-[11px]">
+            {{ tx.timestamp[:19].replace('T', ' ') }}
+          </td>
+          <td class="py-2.5 px-3 font-sans">
+            <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase
+              {% if tx.type == 'BUY' %}bg-emerald-500/10 text-emerald-400 border border-emerald-500/20
+              {% elif tx.type == 'SELL' %}bg-rose-500/10 text-rose-400 border border-rose-500/20
+              {% elif tx.type == 'REWARD' %}bg-amber-500/10 text-amber-400 border border-amber-500/20
+              {% else %}bg-indigo-500/10 text-indigo-400 border border-indigo-500/20{% endif %}">
+              {{ tx.type }}
+            </span>
+          </td>
+          <td class="py-2.5 px-3 font-sans text-slate-200">
+            {{ tx.description }}
+          </td>
+          <td class="py-2.5 px-3 text-right font-semibold text-white">
+            {% if tx.received_amount > 0 %}
+              +{{ tx.received_amount | crypto }} {{ tx.received_currency }}
+            {% elif tx.spent_amount > 0 %}
+              -{{ tx.spent_amount | crypto }} {{ tx.spent_currency }}
+            {% endif %}
+          </td>
+          <td class="py-2.5 px-3 text-right text-slate-300">
+            {% if tx.native_amount > 0 %}
+              {{ tx.native_amount | eur }}
+            {% else %}
+              -
+            {% endif %}
+          </td>
+          <td class="py-2.5 px-3 font-sans text-[11px] text-slate-400">
+            {{ tx.source }}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Price Edit Modal -->
+<div id="modal-price-edit" class="fixed inset-0 z-50 hidden bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+  <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-sm w-full p-5 space-y-4 shadow-2xl">
+    <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+      <h3 class="text-sm font-bold text-white">Kurs manuell anpassen</h3>
+      <button onclick="closeModal('modal-price-edit')" class="text-slate-400 hover:text-white cursor-pointer">
+        <i data-lucide="x" class="w-4 h-4"></i>
+      </button>
+    </div>
+    <form action="/prices/update" method="POST" class="space-y-3 text-xs">
+      <input type="hidden" name="action" value="custom_price">
+      <div>
+        <label class="block text-slate-300 mb-1">Kryptowährung</label>
+        <input type="text" id="edit-price-symbol" name="symbol" readonly class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white font-mono uppercase">
+      </div>
+      <div>
+        <label class="block text-slate-300 mb-1">Neuer Preis in EUR (€)</label>
+        <input type="number" step="any" id="edit-price-val" name="price_eur" required class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white font-mono focus:outline-none focus:border-indigo-500">
+      </div>
+      <div class="flex justify-end space-x-2 pt-2 border-t border-slate-800">
+        <button type="button" onclick="closeModal('modal-price-edit')" class="px-3 py-1.5 rounded-xl text-slate-300 hover:bg-slate-800">Abbrechen</button>
+        <button type="submit" class="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold">Speichern</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  function openPriceModal(symbol, price) {
+    document.getElementById('edit-price-symbol').value = symbol;
+    document.getElementById('edit-price-val').value = price;
+    openModal('modal-price-edit');
+  }
+</script>
+{% endblock %}

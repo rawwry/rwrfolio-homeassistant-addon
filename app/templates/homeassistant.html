@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="space-y-6">
+
+  <!-- Header -->
+  <div class="bg-slate-900/80 rounded-2xl border border-slate-800/80 p-6 shadow-xl space-y-3">
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div>
+        <div class="flex items-center space-x-2">
+          <span class="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 text-[11px] font-bold">
+            <span class="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-ping"></span>
+            <span>REST API Aktiv</span>
+          </span>
+          <h2 class="text-lg font-bold text-white">Home Assistant Integration</h2>
+        </div>
+        <p class="text-xs text-slate-400 mt-1">
+          Binde dein Krypto-Portfolio nahtlos in dein Smart Home Dashboard auf Home Assistant OS (z.B. Raspberry Pi / NUC / Synology) ein.
+        </p>
+      </div>
+
+      <a href="/api/homeassistant/sensors" target="_blank" class="inline-flex items-center space-x-2 px-4 py-2 rounded-xl text-xs font-bold bg-cyan-600 hover:bg-cyan-500 text-white shadow-lg shadow-cyan-600/30 transition-all">
+        <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
+        <span>Live JSON Endpoint aufrufen</span>
+      </a>
+    </div>
+  </div>
+
+  <!-- HA YAML Configuration Code Snippet -->
+  <div class="bg-slate-900/80 rounded-2xl border border-slate-800/80 p-6 shadow-xl space-y-4">
+    <div class="flex items-center justify-between">
+      <h3 class="text-sm font-bold text-white flex items-center space-x-2">
+        <i data-lucide="file-code" class="w-4 h-4 text-cyan-400"></i>
+        <span>1. Home Assistant <code class="text-cyan-300 font-mono">configuration.yaml</code></span>
+      </h3>
+      <button onclick="copyYaml('ha-yaml-snippet')" class="text-xs text-cyan-400 hover:text-cyan-300 flex items-center space-x-1 cursor-pointer">
+        <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+        <span>YAML kopieren</span>
+      </button>
+    </div>
+
+    <pre id="ha-yaml-snippet" class="bg-slate-950 p-4 rounded-xl text-xs text-slate-300 font-mono overflow-x-auto border border-slate-800 leading-relaxed">
+# In deiner Home Assistant configuration.yaml einfügen:
+sensor:
+  - platform: rest
+    name: "Crypto Portfolio"
+    resource: "http://<DEINE_SYNOLOGY_IP>:8000/api/homeassistant/sensors"
+    scan_interval: 300 # Alle 5 Minuten abfragen
+    json_attributes_path: "$.portfolio"
+    json_attributes:
+      - total_value_eur
+      - total_invested_eur
+      - total_pnl_eur
+      - total_pnl_percentage
+      - asset_count
+      - top_asset
+    value_template: "{{ value_json.portfolio.total_value_eur }}"
+    unit_of_measurement: "EUR"
+    device_class: monetary
+    state_class: total
+
+  - platform: rest
+    name: "Crypto Bitcoin"
+    resource: "http://<DEINE_SYNOLOGY_IP>:8000/api/homeassistant/sensors"
+    scan_interval: 300
+    json_attributes_path: "$.assets.BTC"
+    json_attributes:
+      - balance
+      - value_eur
+      - invested_eur
+      - avg_buy_price_eur
+      - current_price_eur
+      - pnl_eur
+      - pnl_percentage
+    value_template: "{{ value_json.assets.BTC.value_eur }}"
+    unit_of_measurement: "EUR"
+    device_class: monetary
+</pre>
+  </div>
+
+  <!-- Lovelace Dashboard Card Preview -->
+  <div class="bg-slate-900/80 rounded-2xl border border-slate-800/80 p-6 shadow-xl space-y-4">
+    <div class="flex items-center justify-between">
+      <h3 class="text-sm font-bold text-white flex items-center space-x-2">
+        <i data-lucide="layout" class="w-4 h-4 text-indigo-400"></i>
+        <span>2. Lovelace Dashboard Karte (Entities / Mushroom Card)</span>
+      </h3>
+    </div>
+
+    <pre class="bg-slate-950 p-4 rounded-xl text-xs text-slate-300 font-mono overflow-x-auto border border-slate-800 leading-relaxed">
+type: entities
+title: 🚀 Crypto Portfolio (Synology NAS)
+entities:
+  - entity: sensor.crypto_portfolio
+    name: Gesamtwert
+  - type: attribute
+    entity: sensor.crypto_portfolio
+    attribute: total_invested_eur
+    name: Investiertes Kapital
+    suffix: " EUR"
+  - type: attribute
+    entity: sensor.crypto_portfolio
+    attribute: total_pnl_eur
+    name: Gewinn / Verlust
+    suffix: " EUR"
+  - type: attribute
+    entity: sensor.crypto_portfolio
+    attribute: total_pnl_percentage
+    name: Rendite %
+    suffix: " %"
+</pre>
+  </div>
+
+</div>
+
+<script>
+  function copyYaml(elementId) {
+    const text = document.getElementById(elementId).innerText;
+    navigator.clipboard.writeText(text);
+    alert('YAML Code in die Zwischenablage kopiert!');
+  }
+</script>
+{% endblock %}

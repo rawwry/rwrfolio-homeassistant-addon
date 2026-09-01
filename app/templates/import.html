@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto space-y-6">
+
+  <!-- Header Banner -->
+  <div class="bg-slate-900/80 p-6 rounded-2xl border border-slate-800/80 shadow-lg space-y-2">
+    <h2 class="text-lg font-bold text-white flex items-center space-x-2">
+      <i data-lucide="file-up" class="w-5 h-5 text-emerald-400"></i>
+      <span>Transaktionen importieren</span>
+    </h2>
+    <p class="text-xs text-slate-400 leading-relaxed">
+      Lade deine Transaktionsexporte direkt von <strong>Crypto.com App</strong> (CSV), <strong>Excel (.xlsx)</strong> oder generischen CSV-Dateien hoch. Die Daten werden dedupliziert und in SQLite persistiert.
+    </p>
+  </div>
+
+  <!-- Status Notification -->
+  {% if success_msg %}
+    <div class="p-4 rounded-2xl bg-emerald-950/60 border border-emerald-800 text-emerald-300 text-xs sm:text-sm font-medium flex items-center space-x-3">
+      <i data-lucide="check-circle-2" class="w-5 h-5 text-emerald-400 shrink-0"></i>
+      <div>
+        <div class="font-bold text-white">{{ success_msg }}</div>
+        <div class="text-xs text-emerald-400/80">Format: {{ detected_source }} &bull; Neu importiert: {{ imported_count }}</div>
+      </div>
+    </div>
+  {% endif %}
+
+  {% if errors and errors|length > 0 %}
+    <div class="p-4 rounded-2xl bg-rose-950/60 border border-rose-800 text-rose-300 text-xs space-y-2">
+      <div class="font-bold flex items-center space-x-2">
+        <i data-lucide="alert-triangle" class="w-4 h-4 text-rose-400"></i>
+        <span>Hinweise beim Import:</span>
+      </div>
+      <ul class="list-disc pl-5 space-y-1 font-mono text-[11px]">
+        {% for err in errors %}
+          <li>{{ err }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+  {% endif %}
+
+  <!-- Upload Drag & Drop Area Form -->
+  <div class="bg-slate-900/80 p-6 rounded-2xl border border-slate-800/80 shadow-lg">
+    <form action="/import/upload" method="POST" enctype="multipart/form-data" class="space-y-6">
+      
+      <div id="drop-zone" class="border-2 border-dashed border-slate-700 hover:border-indigo-500 rounded-2xl p-8 flex flex-col items-center justify-center text-center cursor-pointer transition-colors bg-slate-950/40">
+        <div class="w-12 h-12 rounded-2xl bg-indigo-600/10 text-indigo-400 flex items-center justify-center mb-3">
+          <i data-lucide="upload-cloud" class="w-6 h-6"></i>
+        </div>
+        <h4 class="text-sm font-bold text-white mb-1">CSV- oder Excel-Datei auswählen</h4>
+        <p class="text-xs text-slate-400 mb-4">Unterstützt Crypto.com App CSV, .xlsx und Standard-CSV</p>
+        
+        <input type="file" id="file-input" name="file" accept=".csv, .xlsx, .xls" required class="hidden">
+        
+        <button type="button" onclick="document.getElementById('file-input').click()" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold border border-slate-700 transition-colors">
+          Datei durchsuchen
+        </button>
+
+        <div id="file-chosen" class="mt-3 text-xs text-indigo-400 font-mono hidden">
+          Ausgewählt: <span id="file-name" class="font-bold text-white"></span>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-between pt-2">
+        <span class="text-xs text-slate-500 font-mono">Deduplizierung aktiv: Bereits vorhandene Transaktionen werden übersprungen.</span>
+        <button type="submit" class="inline-flex items-center space-x-2 px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-lg shadow-indigo-600/30 transition-all cursor-pointer">
+          <i data-lucide="arrow-up-circle" class="w-4 h-4"></i>
+          <span>Jetzt importieren</span>
+        </button>
+      </div>
+
+    </form>
+  </div>
+
+  <!-- Format Information Guide -->
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    
+    <!-- Crypto.com Details -->
+    <div class="p-5 rounded-2xl bg-slate-900/60 border border-slate-800/80 space-y-3 text-xs">
+      <div class="flex items-center space-x-2 text-white font-bold">
+        <i data-lucide="file-check" class="w-4 h-4 text-emerald-400"></i>
+        <span>Crypto.com App Export</span>
+      </div>
+      <p class="text-slate-400">
+        In der Crypto.com App: <strong>Konten &rarr; Verlauf (Icon oben rechts) &rarr; Exportieren &rarr; CSV</strong>.
+      </p>
+      <div class="bg-slate-950 p-3 rounded-xl font-mono text-[10px] text-slate-400 overflow-x-auto space-y-1">
+        <div class="text-slate-300 font-bold">Erkannte Spalten:</div>
+        <div>Timestamp (UTC), Transaction Description, Currency, Amount, To Currency, To Amount, Native Currency, Native Amount, Transaction Kind, Transaction Hash</div>
+      </div>
+    </div>
+
+    <!-- Excel / Generic Details -->
+    <div class="p-5 rounded-2xl bg-slate-900/60 border border-slate-800/80 space-y-3 text-xs">
+      <div class="flex items-center space-x-2 text-white font-bold">
+        <i data-lucide="table" class="w-4 h-4 text-indigo-400"></i>
+        <span>Excel (.xlsx) / Generisches CSV</span>
+      </div>
+      <p class="text-slate-400">
+        Auch eigene Tabellen oder Exporte anderer Börsen mit Timestamp, Currency, Amount und Fiat-Betrag (EUR) werden automatisch zugeordnet.
+      </p>
+      <div class="flex items-center space-x-2 pt-2">
+        <a href="/export/csv" class="text-indigo-400 hover:text-indigo-300 font-semibold flex items-center space-x-1">
+          <i data-lucide="download" class="w-3.5 h-3.5"></i>
+          <span>Beispiel-Vorlage herunterladen</span>
+        </a>
+      </div>
+    </div>
+
+  </div>
+
+</div>
+
+<script>
+  const fileInput = document.getElementById('file-input');
+  const fileChosen = document.getElementById('file-chosen');
+  const fileName = document.getElementById('file-name');
+  const dropZone = document.getElementById('drop-zone');
+
+  fileInput.addEventListener('change', (e) => {
+    if (fileInput.files.length > 0) {
+      fileName.innerText = fileInput.files[0].name;
+      fileChosen.classList.remove('hidden');
+    }
+  });
+
+  dropZone.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    dropZone.classList.add('border-indigo-500', 'bg-indigo-950/20');
+  });
+
+  dropZone.addEventListener('dragleave', () => {
+    dropZone.classList.remove('border-indigo-500', 'bg-indigo-950/20');
+  });
+
+  dropZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropZone.classList.remove('border-indigo-500', 'bg-indigo-950/20');
+    if (e.dataTransfer.files.length > 0) {
+      fileInput.files = e.dataTransfer.files;
+      fileName.innerText = e.dataTransfer.files[0].name;
+      fileChosen.classList.remove('hidden');
+    }
+  });
+</script>
+{% endblock %}

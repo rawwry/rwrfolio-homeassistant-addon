@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="de" class="h-full bg-slate-950 text-slate-100">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Crypto Tracker &bull; Synology NAS & Home Assistant</title>
+  
+  <!-- Tailwind CSS CDN (Kein Build-Schritt, kein npm) -->
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+  
+  <!-- Lucide Icons & Chart.js -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body class="min-h-full flex flex-col font-sans antialiased bg-slate-950 text-slate-100 selection:bg-indigo-500 selection:text-white">
+
+  <!-- Top Navigation Header -->
+  <header class="sticky top-0 z-40 border-b border-slate-800/80 bg-slate-950/90 backdrop-blur-md">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex items-center justify-between h-16">
+        
+        <!-- Brand & Platform Badges -->
+        <div class="flex items-center space-x-3">
+          <a href="/" class="flex items-center space-x-2.5 group">
+            <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 to-blue-500 flex items-center justify-center shadow-lg shadow-indigo-500/20 group-hover:scale-105 transition-transform">
+              <i data-lucide="layers" class="w-5 h-5 text-white"></i>
+            </div>
+            <div>
+              <span class="font-bold text-base tracking-tight text-white group-hover:text-indigo-300 transition-colors">Crypto Tracker</span>
+              <div class="flex items-center space-x-1.5 text-[10px] text-slate-400 font-mono">
+                <span class="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                <span>FastAPI &bull; SQLite WAL</span>
+              </div>
+            </div>
+          </a>
+        </div>
+
+        <!-- Navigation Tabs -->
+        <nav class="hidden md:flex items-center space-x-1 bg-slate-900/90 p-1 rounded-xl border border-slate-800 text-xs font-semibold">
+          <a href="/" class="px-3 py-1.5 rounded-lg transition-colors {% if active_page == 'dashboard' %}bg-indigo-600 text-white shadow-sm{% else %}text-slate-400 hover:text-slate-200 hover:bg-slate-800/60{% endif %}">
+            <span class="flex items-center space-x-1.5">
+              <i data-lucide="layout-dashboard" class="w-3.5 h-3.5"></i>
+              <span>Dashboard</span>
+            </span>
+          </a>
+          <a href="/transactions" class="px-3 py-1.5 rounded-lg transition-colors {% if active_page == 'transactions' %}bg-indigo-600 text-white shadow-sm{% else %}text-slate-400 hover:text-slate-200 hover:bg-slate-800/60{% endif %}">
+            <span class="flex items-center space-x-1.5">
+              <i data-lucide="receipt-text" class="w-3.5 h-3.5"></i>
+              <span>Transaktionen</span>
+            </span>
+          </a>
+          <a href="/import" class="px-3 py-1.5 rounded-lg transition-colors {% if active_page == 'import' %}bg-indigo-600 text-white shadow-sm{% else %}text-slate-400 hover:text-slate-200 hover:bg-slate-800/60{% endif %}">
+            <span class="flex items-center space-x-1.5">
+              <i data-lucide="upload" class="w-3.5 h-3.5"></i>
+              <span>CSV &amp; Excel Import</span>
+            </span>
+          </a>
+          <a href="/homeassistant" class="px-3 py-1.5 rounded-lg transition-colors {% if active_page == 'homeassistant' %}bg-indigo-600 text-white shadow-sm{% else %}text-slate-400 hover:text-slate-200 hover:bg-slate-800/60{% endif %}">
+            <span class="flex items-center space-x-1.5">
+              <i data-lucide="cpu" class="w-3.5 h-3.5 text-cyan-400"></i>
+              <span>Home Assistant</span>
+            </span>
+          </a>
+        </nav>
+
+        <!-- Right Quick Actions -->
+        <div class="flex items-center space-x-2">
+          <!-- Refresh Live Prices -->
+          <form action="/prices/update" method="POST" class="inline">
+            <input type="hidden" name="action" value="refresh_all">
+            <button type="submit" title="Marktpreise via CoinGecko aktualisieren" class="p-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 hover:text-white transition-all">
+              <i data-lucide="refresh-cw" class="w-4 h-4 text-indigo-400"></i>
+            </button>
+          </form>
+
+          <!-- Quick Add Button -->
+          <button onclick="openModal('modal-add-transaction')" class="hidden sm:inline-flex items-center space-x-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white shadow-md shadow-indigo-600/20 transition-all cursor-pointer">
+            <i data-lucide="plus" class="w-3.5 h-3.5"></i>
+            <span>Kauf erfassen</span>
+          </button>
+
+          <!-- Quick Import Button -->
+          <a href="/import" class="inline-flex items-center space-x-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-800 transition-all">
+            <i data-lucide="file-up" class="w-3.5 h-3.5 text-emerald-400"></i>
+            <span class="hidden sm:inline">Import</span>
+          </a>
+        </div>
+
+      </div>
+
+      <!-- Mobile Navigation Row -->
+      <div class="flex md:hidden border-t border-slate-800/60 py-2 space-x-1 text-xs overflow-x-auto">
+        <a href="/" class="px-3 py-1.5 rounded-lg shrink-0 {% if active_page == 'dashboard' %}bg-indigo-600 text-white{% else %}text-slate-400{% endif %}">Dashboard</a>
+        <a href="/transactions" class="px-3 py-1.5 rounded-lg shrink-0 {% if active_page == 'transactions' %}bg-indigo-600 text-white{% else %}text-slate-400{% endif %}">Transaktionen</a>
+        <a href="/import" class="px-3 py-1.5 rounded-lg shrink-0 {% if active_page == 'import' %}bg-indigo-600 text-white{% else %}text-slate-400{% endif %}">Import</a>
+        <a href="/homeassistant" class="px-3 py-1.5 rounded-lg shrink-0 {% if active_page == 'homeassistant' %}bg-indigo-600 text-white{% else %}text-slate-400{% endif %}">Home Assistant</a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Notification Banner / Alert Flash -->
+  {% block notifications %}{% endblock %}
+
+  <!-- Main Content Container -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+    {% block content %}{% endblock %}
+  </main>
+
+  <!-- Footer -->
+  <footer class="border-t border-slate-800/80 bg-slate-950 py-6 mt-12 text-xs text-slate-400">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4">
+      <div class="flex items-center space-x-2">
+        <i data-lucide="server" class="w-4 h-4 text-indigo-400"></i>
+        <span>Synology NAS Portainer Container &bull; SQLite WAL Mode &bull; Home Assistant REST Ready</span>
+      </div>
+
+      <div class="flex items-center space-x-4">
+        <a href="/export/csv" class="hover:text-white flex items-center space-x-1 transition-colors">
+          <i data-lucide="download" class="w-3.5 h-3.5 text-emerald-400"></i>
+          <span>CSV Export</span>
+        </a>
+        <a href="/export/xlsx" class="hover:text-white flex items-center space-x-1 transition-colors">
+          <i data-lucide="file-spreadsheet" class="w-3.5 h-3.5 text-indigo-400"></i>
+          <span>Excel Export</span>
+        </a>
+        <a href="/api/homeassistant/sensors" target="_blank" class="hover:text-white flex items-center space-x-1 transition-colors">
+          <i data-lucide="code" class="w-3.5 h-3.5 text-cyan-400"></i>
+          <span>JSON REST API</span>
+        </a>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Modal: Manual Add Transaction -->
+  <div id="modal-add-transaction" class="fixed inset-0 z-50 hidden bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full p-6 space-y-5 shadow-2xl animate-in fade-in zoom-in-95 duration-150">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-4">
+        <h3 class="text-base font-bold text-white flex items-center space-x-2">
+          <i data-lucide="plus-circle" class="w-5 h-5 text-indigo-400"></i>
+          <span>Kauf / Transaktion erfassen</span>
+        </h3>
+        <button onclick="closeModal('modal-add-transaction')" class="text-slate-400 hover:text-white cursor-pointer">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <form action="/transactions/add" method="POST" class="space-y-4 text-xs">
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-slate-300 font-medium mb-1">Datum &amp; Uhrzeit (UTC)</label>
+            <input type="datetime-local" name="timestamp" required class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-indigo-500" value="{{ now }}">
+          </div>
+          <div>
+            <label class="block text-slate-300 font-medium mb-1">Typ</label>
+            <select name="type" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-indigo-500">
+              <option value="BUY">KAUF (BUY)</option>
+              <option value="SELL">VERKAUF (SELL)</option>
+              <option value="REWARD">CASHBACK / REWARD</option>
+              <option value="STAKE">STAKING / EARN</option>
+              <option value="TRANSFER">TRANSFER</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-slate-300 font-medium mb-1">Erhaltene Kryptowährung (z.B. BTC, CRO)</label>
+            <input type="text" name="received_currency" placeholder="BTC" required class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white font-mono uppercase focus:outline-none focus:border-indigo-500">
+          </div>
+          <div>
+            <label class="block text-slate-300 font-medium mb-1">Menge erhalten</label>
+            <input type="number" step="any" name="received_amount" placeholder="0.005" required class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white font-mono focus:outline-none focus:border-indigo-500">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-slate-300 font-medium mb-1">Ausgegebene Währung</label>
+            <input type="text" name="spent_currency" value="EUR" required class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white font-mono uppercase focus:outline-none focus:border-indigo-500">
+          </div>
+          <div>
+            <label class="block text-slate-300 font-medium mb-1">Gesamtbetrag ausgegeben (€)</label>
+            <input type="number" step="any" name="spent_amount" placeholder="250.00" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white font-mono focus:outline-none focus:border-indigo-500">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-slate-300 font-medium mb-1">Quelle / Börse</label>
+            <select name="source" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-indigo-500">
+              <option value="crypto_com">Crypto.com</option>
+              <option value="binance">Binance</option>
+              <option value="kraken">Kraken</option>
+              <option value="bitpanda">Bitpanda</option>
+              <option value="coinbase">Coinbase</option>
+              <option value="manual" selected>Manuell</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-slate-300 font-medium mb-1">Beschreibung</label>
+            <input type="text" name="description" placeholder="Sparplan oder Spot-Kauf" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-indigo-500">
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-slate-300 font-medium mb-1">Notizen (optional)</label>
+          <input type="text" name="notes" placeholder="z.B. Hardware Wallet Transfer oder Notiz" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-indigo-500">
+        </div>
+
+        <div class="flex justify-end space-x-2 pt-3 border-t border-slate-800">
+          <button type="button" onclick="closeModal('modal-add-transaction')" class="px-4 py-2 rounded-xl text-slate-300 hover:bg-slate-800 border border-slate-700">Abbrechen</button>
+          <button type="submit" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold shadow-md shadow-indigo-600/30">Speichern</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="/static/app.js"></script>
+  <script>
+    lucide.createIcons();
+    function openModal(id) {
+      document.getElementById(id).classList.remove('hidden');
+    }
+    function closeModal(id) {
+      document.getElementById(id).classList.add('hidden');
+    }
+  </script>
+</body>
+</html>
