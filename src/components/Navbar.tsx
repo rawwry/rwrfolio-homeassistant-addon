@@ -22,8 +22,8 @@ interface NavbarProps {
   onOpenSettings: () => void;
   lastUpdatedText?: string | null;
   dbConnected?: boolean;
-  activeTab: 'dashboard' | 'transactions' | 'assets' | 'analytics';
-  setActiveTab: (tab: 'dashboard' | 'transactions' | 'assets' | 'analytics') => void;
+  activeTab: 'dashboard' | 'transactions' | 'assets' | 'analytics' | 'taxes';
+  setActiveTab: (tab: 'dashboard' | 'transactions' | 'assets' | 'analytics' | 'taxes') => void;
   theme: ThemeMode;
   userProfile?: UserProfile;
 }
@@ -53,7 +53,7 @@ export const Navbar: React.FC<NavbarProps> = ({
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-13 sm:h-14 gap-4">
           
-          {/* Logo & Brand: rwrfolio with Pixel Goat Icon */}
+          {/* Logo & Brand: rwr/folio with Pixel Goat Icon */}
           <div 
             onClick={() => setActiveTab('dashboard')}
             className="flex items-center space-x-2.5 cursor-pointer group select-none"
@@ -63,12 +63,9 @@ export const Navbar: React.FC<NavbarProps> = ({
             }`}>
               <PixelGoatIcon size={20} className="transform group-hover:scale-105 transition-transform" />
             </div>
-            <div className="flex items-baseline space-x-2">
+            <div className="flex items-baseline space-x-1.5">
               <span className={`font-extrabold text-base sm:text-lg tracking-tight font-sans ${isLight ? 'text-slate-900' : 'text-white'}`}>
-                rwr<span className="text-indigo-500">folio</span>
-              </span>
-              <span className={`hidden sm:inline-block text-[10px] uppercase font-mono tracking-widest font-semibold ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>
-                crypto
+                rwr<span className="text-indigo-500">/folio</span>
               </span>
             </div>
           </div>
@@ -131,21 +128,21 @@ export const Navbar: React.FC<NavbarProps> = ({
             >
               Analysen
             </button>
+            <button
+              onClick={() => setActiveTab('taxes')}
+              className={`px-3.5 py-1.5 rounded-lg font-medium transition-all flex items-center space-x-1 ${
+                activeTab === 'taxes'
+                  ? 'bg-indigo-600 text-white font-semibold shadow-sm'
+                  : isLight ? 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
+              }`}
+            >
+              <ShieldCheck className="w-3.5 h-3.5" />
+              <span>Steuern (FIFO)</span>
+            </button>
           </nav>
 
           {/* Right Controls */}
           <div className="flex items-center space-x-2">
-            {/* Database indicator */}
-            <div 
-              title={dbConnected ? "SQLite auf Raspberry Pi (/share/rwrfolio/db) aktiv" : "Lokaler Speicher aktiv"}
-              className={`hidden lg:flex items-center space-x-1.5 px-2 py-1 rounded-lg text-[11px] font-mono border ${
-                isLight ? 'bg-slate-100 border-slate-200 text-slate-700' : 'bg-slate-950/80 border-slate-800/80 text-slate-300'
-              }`}
-            >
-              <Database className={`w-3 h-3 ${dbConnected ? 'text-emerald-500' : 'text-amber-500'}`} />
-              <span className="text-[10px] font-sans">SQLite</span>
-              <span className={`w-1.5 h-1.5 rounded-full ${dbConnected ? 'bg-emerald-500' : 'bg-amber-500'}`} />
-            </div>
 
             {/* Quick Live Price Refresh */}
             <button

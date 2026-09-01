@@ -136,19 +136,7 @@ export async function initDb(): Promise<void> {
     );
   `);
 
-  // Check if we need to seed with initial sample transactions if database is completely empty
-  const countResult = await db.execute('SELECT COUNT(*) as count FROM transactions');
-  const count = Number(countResult.rows[0]?.count ?? 0);
-  
-  if (count === 0) {
-    console.log('[SQLite] Leere Datenbank erkannt. Initialisiere mit Beispieldaten...');
-    const sampleRows = parseCSVLines(USER_SAMPLE_CRYPTO_COM_CSV);
-    const initialTxs = parseCryptoComCSV(sampleRows);
-    for (const tx of initialTxs) {
-      await insertOrUpdateTransaction(tx);
-    }
-    console.log(`[SQLite] ${initialTxs.length} Transaktionen in SQLite gespeichert.`);
-  }
+  // Initial database schema ready. Start with clean, empty transactions table (0 entries).
 }
 
 export async function getAllTransactions(): Promise<Transaction[]> {
@@ -263,12 +251,7 @@ export async function deleteTransactionsBulk(ids: string[]): Promise<void> {
 export async function resetTransactionsToSample(): Promise<Transaction[]> {
   const db = getDb();
   await db.execute('DELETE FROM transactions');
-  const sampleRows = parseCSVLines(USER_SAMPLE_CRYPTO_COM_CSV);
-  const initialTxs = parseCryptoComCSV(sampleRows);
-  for (const tx of initialTxs) {
-    await insertOrUpdateTransaction(tx);
-  }
-  return initialTxs;
+  return [];
 }
 
 export async function getCustomPrices(): Promise<Record<string, number>> {

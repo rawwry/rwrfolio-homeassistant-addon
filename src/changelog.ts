@@ -9,14 +9,33 @@ export interface ChangelogRelease {
   }[];
 }
 
-export const APP_VERSION = '0.4.0';
+export const APP_VERSION = '0.4.1';
 
 export const CHANGELOG_DATA: ChangelogRelease[] = [
+  {
+    version: '0.4.1',
+    date: '01.09.2026',
+    title: 'Steuer-Berechnung (FIFO) & Interface-Bereinigung',
+    badge: 'Aktuell',
+    changes: [
+      {
+        type: 'feat',
+        text: 'Steuer- & Haltedauer-Rechner (FIFO § 23 EStG): Detaillierte Haltefristen (365 Tage), steuerfreie Tranchen und Export für die Steuererklärung.',
+      },
+      {
+        type: 'ui',
+        text: 'Branding auf rwr/folio angepasst und Menüleiste bereinigt.',
+      },
+      {
+        type: 'ui',
+        text: 'Analysen-Ansicht auf Kern-Charts und Asset-Details fokussiert.',
+      },
+    ],
+  },
   {
     version: '0.4.0',
     date: '01.09.2026',
     title: 'Einstellungen, Light & Dark Mode, E-Mail Alarme & GitHub Audit',
-    badge: 'Aktuell',
     changes: [
       {
         type: 'feat',

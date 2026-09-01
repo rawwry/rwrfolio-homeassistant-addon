@@ -25,6 +25,8 @@ import { AddTransactionModal } from './components/AddTransactionModal';
 import { PriceEditModal } from './components/PriceEditModal';
 import { ChangelogModal } from './components/ChangelogModal';
 import { SettingsModal } from './components/SettingsModal';
+import { AnalyticsView } from './components/AnalyticsView';
+import { TaxView } from './components/TaxView';
 import { APP_VERSION } from './changelog';
 import { PixelGoatIcon } from './components/PixelGoatIcon';
 import { 
@@ -83,27 +85,26 @@ export default function App() {
     return DEFAULT_SETTINGS;
   });
 
-  // Load initial transactions from localStorage or default sample
+  // Load initial transactions from localStorage or default to clean empty array []
   const [transactions, setTransactions] = useState<Transaction[]>(() => {
     try {
-      const saved = localStorage.getItem(STORAGE_KEY) || localStorage.getItem('crypto_tracker_transactions_v1');
+      const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
+        if (Array.isArray(parsed)) {
           return parsed;
         }
       }
     } catch (e) {
       console.error('Error reading localStorage', e);
     }
-    const sampleRows = parseCSVLines(USER_SAMPLE_CRYPTO_COM_CSV);
-    return parseCryptoComCSV(sampleRows);
+    return [];
   });
 
   const [customPrices, setCustomPrices] = useState<Record<string, number>>(() => getStoredCustomPrices());
   const [isRefreshingPrices, setIsRefreshingPrices] = useState(false);
   const [lastUpdatedTime, setLastUpdatedTime] = useState<string | null>(() => getLastPriceUpdateTime());
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'transactions' | 'assets' | 'analytics'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'transactions' | 'assets' | 'analytics' | 'taxes'>('dashboard');
   const [dbConnected, setDbConnected] = useState<boolean>(true);
 
   // Modals state
@@ -127,14 +128,10 @@ export default function App() {
   useEffect(() => {
     async function syncWithSQLite() {
       try {
-        // Fetch transactions
+        // Fetch transactions from SQLite database
         const serverTxs = await fetchTransactionsFromApi();
-        if (serverTxs && serverTxs.length > 0) {
+        if (serverTxs && Array.isArray(serverTxs)) {
           setTransactions(serverTxs);
-          setDbConnected(true);
-        } else if (serverTxs && serverTxs.length === 0) {
-          // If server database is empty, seed it with initial transactions
-          await bulkImportTransactionsToApi(transactions);
           setDbConnected(true);
         } else {
           setDbConnected(false);
@@ -397,13 +394,9 @@ export default function App() {
                       <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
                       <span>Live-Kurse aktiv</span>
                     </span>
-                    <span className="hidden md:inline-flex items-center space-x-1 px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-500 border border-indigo-500/20 text-[10px] font-medium">
-                      <Database className="w-2.5 h-2.5 text-indigo-500" />
-                      <span>SQLite persistent</span>
-                    </span>
                   </div>
                   <p className={`text-xs ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>
-                    Dauerhaft in SQLite auf Raspberry Pi gesichert &bull; Kurs-Update: {formattedLastUpdated || 'gerade eben'}
+                    Kurs-Update: {formattedLastUpdated || 'gerade eben'}
                   </p>
                 </div>
               </div>
@@ -451,7 +444,7 @@ export default function App() {
                 <h3 className={`text-base font-bold flex items-center gap-2 ${isLight ? 'text-slate-900' : 'text-white'}`}>
                   <span>Letzte Transaktionen</span>
                   <span className={`text-xs px-2 py-0.5 rounded-full font-mono ${isLight ? 'bg-slate-200 text-slate-700' : 'bg-slate-800 text-slate-400'}`}>
-                    {transactions.length} in SQLite
+                    {transactions.length}
                   </span>
                 </h3>
                 <button
@@ -539,70 +532,20 @@ export default function App() {
 
         {/* Analytics Tab */}
         {activeTab === 'analytics' && (
-          <div className="space-y-6">
-            <PortfolioCharts assets={assets} transactions={transactions} />
+          <AnalyticsView
+            assets={assets}
+            transactions={transactions}
+            theme={settings.theme}
+          />
+        )}
 
-            {/* Asset Breakdown Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {assets.map(asset => {
-                const details = getCoinDetails(asset.symbol);
-                const isProfit = asset.pnlEUR >= 0;
-                return (
-                  <div 
-                    key={asset.symbol} 
-                    className={`p-5 rounded-2xl border space-y-3 ${
-                      isLight ? 'bg-white border-slate-200' : 'bg-slate-900/80 border-slate-800/80'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-2.5">
-                        <div 
-                          className="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs text-white"
-                          style={{ backgroundColor: details.color }}
-                        >
-                          {asset.symbol.substring(0, 3)}
-                        </div>
-                        <div>
-                          <div className={`font-bold text-sm ${isLight ? 'text-slate-900' : 'text-white'}`}>{asset.symbol}</div>
-                          <div className={`text-[11px] ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>{asset.name}</div>
-                        </div>
-                      </div>
-                      <div className="text-right font-mono">
-                        <div className={`text-sm font-bold ${isLight ? 'text-slate-900' : 'text-white'}`}>{asset.currentPriceEUR.toFixed(2)} €</div>
-                        <div className={`text-[10px] ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>Live-Kurs</div>
-                      </div>
-                    </div>
-
-                    <div className={`grid grid-cols-2 gap-2 text-xs pt-1 border-t font-mono ${
-                      isLight ? 'border-slate-100' : 'border-slate-800/60'
-                    }`}>
-                      <div>
-                        <span className={`text-[10px] block font-sans ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>Investiert</span>
-                        <span className={`font-semibold ${isLight ? 'text-slate-800' : 'text-slate-200'}`}>{asset.totalInvestedEUR.toFixed(2)} €</span>
-                      </div>
-                      <div>
-                        <span className={`text-[10px] block font-sans ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>Aktueller Wert</span>
-                        <span className={`font-bold ${isLight ? 'text-slate-900' : 'text-white'}`}>{asset.currentValueEUR.toFixed(2)} €</span>
-                      </div>
-                      <div>
-                        <span className={`text-[10px] block font-sans ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>Ø Kaufpreis (DCA)</span>
-                        <span className="text-indigo-500 font-semibold">{asset.averageBuyPriceEUR.toFixed(4)} €</span>
-                      </div>
-                      <div>
-                        <span className={`text-[10px] block font-sans ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>Gewinn / Verlust</span>
-                        <div className={`font-semibold ${isProfit ? 'text-emerald-500' : 'text-rose-500'}`}>
-                          {isProfit ? '+' : ''}{asset.pnlPercentage.toFixed(2)}%
-                        </div>
-                        <div className={`text-[10px] font-medium ${isProfit ? 'text-emerald-500/80' : 'text-rose-500/80'}`}>
-                          {isProfit ? '+' : ''}{asset.pnlEUR.toFixed(2)} €
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
+        {/* Taxes & FIFO Tab */}
+        {activeTab === 'taxes' && (
+          <TaxView
+            transactions={transactions}
+            customPrices={customPrices}
+            theme={settings.theme}
+          />
         )}
 
       </main>
@@ -615,7 +558,7 @@ export default function App() {
           <div className="flex flex-wrap items-center gap-2">
             <div className="flex items-center space-x-2">
               <PixelGoatIcon size={18} />
-              <span className={`font-semibold ${isLight ? 'text-slate-800' : 'text-slate-300'}`}>rwrfolio</span>
+              <span className={`font-semibold ${isLight ? 'text-slate-800' : 'text-slate-300'}`}>rwr/folio</span>
             </div>
             <span className="text-slate-400">&bull;</span>
             <button
@@ -631,8 +574,6 @@ export default function App() {
               <span>v{APP_VERSION}</span>
               <span className="text-[10px] text-indigo-500 font-sans ml-0.5 underline decoration-indigo-500/50">Changelog</span>
             </button>
-            <span className="text-slate-400 hidden md:inline">&bull;</span>
-            <span className="text-slate-500 hidden md:inline">SQLite &amp; Raspberry Pi Private Storage</span>
           </div>
 
           <div className="flex items-center space-x-4">
@@ -663,9 +604,9 @@ export default function App() {
             <button
               onClick={handleResetData}
               className="hover:text-rose-500 flex items-center space-x-1 transition-colors cursor-pointer"
-              title="Daten auf Beispieldaten zurücksetzen"
+              title="Daten zurücksetzen"
             >
-              <RotateCcw className="w-3.5 h-3.5 text-slate-400 hover:text-rose-500" />
+              <RotateCcw className="w-3.5 h-3.5 text-rose-500" />
               <span>Zurücksetzen</span>
             </button>
           </div>
