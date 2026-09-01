@@ -27,8 +27,10 @@ import { ChangelogModal } from './components/ChangelogModal';
 import { SettingsModal } from './components/SettingsModal';
 import { AnalyticsView } from './components/AnalyticsView';
 import { TaxView } from './components/TaxView';
+import { LoginScreen } from './components/LoginScreen';
 import { APP_VERSION } from './changelog';
 import { PixelGoatIcon } from './components/PixelGoatIcon';
+import { isSessionAuthenticated, clearSessionAuth } from './utils/auth';
 import { 
   Download, 
   RotateCcw, 
@@ -42,7 +44,8 @@ import {
   Settings as SettingsIcon,
   ShieldCheck,
   Eye,
-  EyeOff
+  EyeOff,
+  LogOut
 } from 'lucide-react';
 
 const STORAGE_KEY = 'rwrfolio_transactions_v2';
@@ -106,6 +109,9 @@ export default function App() {
   const [lastUpdatedTime, setLastUpdatedTime] = useState<string | null>(() => getLastPriceUpdateTime());
   const [activeTab, setActiveTab] = useState<'dashboard' | 'transactions' | 'assets' | 'analytics' | 'taxes'>('dashboard');
   const [dbConnected, setDbConnected] = useState<boolean>(true);
+
+  // Authentication State
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => isSessionAuthenticated());
 
   // Modals state
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -318,6 +324,36 @@ export default function App() {
     setActiveTab('transactions');
   };
 
+  // Auth Handlers
+  const handleLoginSuccess = () => {
+    setIsAuthenticated(true);
+    showToast('Erfolgreich angemeldet', 'success');
+  };
+
+  const handleSetNewPassword = async (newHash: string) => {
+    const updatedSettings: AppSettings = {
+      ...settings,
+      user: {
+        ...settings.user,
+        hasPassword: true,
+        passwordHash: newHash,
+        updatedAt: new Date().toISOString(),
+      }
+    };
+    await handleSaveSettings(updatedSettings);
+  };
+
+  const handleLogout = () => {
+    clearSessionAuth();
+    setIsAuthenticated(false);
+    showToast('Erfolgreich abgemeldet', 'info');
+  };
+
+  const handleToggleTheme = () => {
+    const nextTheme: ThemeMode = settings.theme === 'dark' ? 'light' : 'dark';
+    handleSaveSettings({ ...settings, theme: nextTheme });
+  };
+
   const formattedLastUpdated = useMemo(() => {
     if (!lastUpdatedTime) return null;
     try {
@@ -329,6 +365,19 @@ export default function App() {
   }, [lastUpdatedTime]);
 
   const isLight = settings.theme === 'light';
+
+  // If user is not authenticated, render Login Screen
+  if (!isAuthenticated) {
+    return (
+      <LoginScreen
+        userProfile={settings.user}
+        onLoginSuccess={handleLoginSuccess}
+        onSetNewPassword={handleSetNewPassword}
+        theme={settings.theme}
+        onToggleTheme={handleToggleTheme}
+      />
+    );
+  }
 
   return (
     <div className={`min-h-screen flex flex-col font-sans transition-colors duration-200 ${
@@ -357,6 +406,7 @@ export default function App() {
         onExportData={handleExportCSV}
         onResetData={handleResetData}
         onOpenSettings={() => setIsSettingsOpen(true)}
+        onLogout={handleLogout}
         lastUpdatedText={formattedLastUpdated}
         dbConnected={dbConnected}
         activeTab={activeTab}
@@ -609,6 +659,14 @@ export default function App() {
               <RotateCcw className="w-3.5 h-3.5 text-rose-500" />
               <span>Zurücksetzen</span>
             </button>
+            <button
+              onClick={handleLogout}
+              className="hover:text-amber-500 flex items-center space-x-1 transition-colors cursor-pointer"
+              title="Abmelden"
+            >
+              <LogOut className="w-3.5 h-3.5 text-amber-500" />
+              <span>Abmelden</span>
+            </button>
           </div>
         </div>
       </footer>
@@ -619,6 +677,7 @@ export default function App() {
         onClose={() => setIsSettingsOpen(false)}
         settings={settings}
         onSaveSettings={handleSaveSettings}
+        onLogout={handleLogout}
       />
 
       <ChangelogModal

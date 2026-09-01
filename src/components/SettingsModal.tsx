@@ -21,12 +21,14 @@ import {
 } from 'lucide-react';
 import { AppSettings, ThemeMode } from '../types';
 import { sendTestEmailApi } from '../utils/apiClient';
+import { hashPassword } from '../utils/auth';
 
 interface SettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
   settings: AppSettings;
   onSaveSettings: (newSettings: AppSettings) => void;
+  onLogout?: () => void;
 }
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({
@@ -34,6 +36,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onClose,
   settings,
   onSaveSettings,
+  onLogout,
 }) => {
   const [activeTab, setActiveTab] = useState<'profile' | 'appearance' | 'email' | 'privacy'>('profile');
   
@@ -66,12 +69,20 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
   if (!isOpen) return null;
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (password && password !== confirmPassword) {
       alert('Die Passwörter stimmen nicht überein.');
       return;
+    }
+
+    let finalPasswordHash = settings.user?.passwordHash;
+    let hasPassword = settings.user?.hasPassword ?? false;
+
+    if (password) {
+      finalPasswordHash = await hashPassword(password);
+      hasPassword = true;
     }
 
     const updatedSettings: AppSettings = {
@@ -80,8 +91,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       user: {
         username: username.trim() || 'Krypto-Investor',
         email: email.trim(),
-        hasPassword: Boolean(password) || settings.user?.hasPassword,
-        passwordHash: password ? `sha256_${password.length}_local_secured` : settings.user?.passwordHash,
+        hasPassword,
+        passwordHash: finalPasswordHash,
         updatedAt: new Date().toISOString(),
       },
       email: {
@@ -105,6 +116,24 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       setSavedFeedback(false);
       onClose();
     }, 800);
+  };
+
+  const handleRemovePassword = () => {
+    if (window.confirm('Möchtest du den Passwortschutz wirklich deaktivieren? Die App wird beim Starten nicht mehr nach einem Passwort fragen.')) {
+      const updatedSettings: AppSettings = {
+        ...settings,
+        user: {
+          ...settings.user,
+          hasPassword: false,
+          passwordHash: '',
+          updatedAt: new Date().toISOString(),
+        }
+      };
+      onSaveSettings(updatedSettings);
+      setPassword('');
+      setConfirmPassword('');
+      alert('Passwortschutz wurde deaktiviert.');
+    }
   };
 
   const handleSendTestEmail = async () => {
@@ -324,6 +353,32 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         />
                       </div>
                     </div>
+
+                    {/* Remove password option if currently enabled */}
+                    {settings.user?.hasPassword && (
+                      <div className="flex items-center justify-between pt-2">
+                        <button
+                          type="button"
+                          onClick={handleRemovePassword}
+                          className="text-xs text-rose-500 hover:text-rose-400 font-medium hover:underline cursor-pointer"
+                        >
+                          Passwortschutz entfernen
+                        </button>
+
+                        {onLogout && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              onClose();
+                              onLogout();
+                            }}
+                            className="text-xs px-2.5 py-1 rounded-lg border border-slate-700 hover:bg-slate-800 text-slate-300 hover:text-white transition-colors cursor-pointer"
+                          >
+                            Jetzt abmelden
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

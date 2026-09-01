@@ -2,13 +2,13 @@ import React from 'react';
 import { 
   RefreshCw, 
   Download, 
-  RotateCcw,
-  Database,
-  Settings as SettingsIcon,
-  Sun,
-  Moon,
-  User,
-  ShieldCheck
+  RotateCcw, 
+  Settings as SettingsIcon, 
+  Sun, 
+  Moon, 
+  User, 
+  ShieldCheck,
+  LogOut
 } from 'lucide-react';
 import { PortfolioTotals, ThemeMode, UserProfile } from '../types';
 import { PixelGoatIcon } from './PixelGoatIcon';
@@ -20,6 +20,7 @@ interface NavbarProps {
   onExportData: () => void;
   onResetData: () => void;
   onOpenSettings: () => void;
+  onLogout: () => void;
   lastUpdatedText?: string | null;
   dbConnected?: boolean;
   activeTab: 'dashboard' | 'transactions' | 'assets' | 'analytics' | 'taxes';
@@ -35,6 +36,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onExportData,
   onResetData,
   onOpenSettings,
+  onLogout,
   lastUpdatedText,
   dbConnected = true,
   activeTab,
@@ -176,6 +178,20 @@ export const Navbar: React.FC<NavbarProps> = ({
                 {userProfile?.username || 'Einstellungen'}
               </span>
             </button>
+
+            {/* Logout Button */}
+            <button
+              onClick={onLogout}
+              title="App sperren / Abmelden"
+              className={`flex items-center space-x-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${
+                isLight
+                  ? 'bg-slate-100 hover:bg-rose-50 text-slate-700 hover:text-rose-600 border-slate-200 hover:border-rose-200'
+                  : 'bg-slate-800/80 hover:bg-rose-950/40 text-slate-300 hover:text-rose-400 border-slate-700/60 hover:border-rose-800/60'
+              }`}
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              <span className="hidden lg:inline">Abmelden</span>
+            </button>
           </div>
         </div>
 
@@ -185,7 +201,7 @@ export const Navbar: React.FC<NavbarProps> = ({
         }`}>
           <button
             onClick={() => setActiveTab('dashboard')}
-            className={`px-3 py-1 rounded-lg font-medium ${
+            className={`px-2.5 py-1 rounded-lg font-medium ${
               activeTab === 'dashboard' ? 'text-indigo-500 font-bold bg-indigo-50 dark:bg-indigo-950/40' : 'text-slate-500'
             }`}
           >
@@ -193,7 +209,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           </button>
           <button
             onClick={() => setActiveTab('transactions')}
-            className={`px-3 py-1 rounded-lg font-medium ${
+            className={`px-2.5 py-1 rounded-lg font-medium ${
               activeTab === 'transactions' ? 'text-indigo-500 font-bold bg-indigo-50 dark:bg-indigo-950/40' : 'text-slate-500'
             }`}
           >
@@ -201,7 +217,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           </button>
           <button
             onClick={() => setActiveTab('assets')}
-            className={`px-3 py-1 rounded-lg font-medium ${
+            className={`px-2.5 py-1 rounded-lg font-medium ${
               activeTab === 'assets' ? 'text-indigo-500 font-bold bg-indigo-50 dark:bg-indigo-950/40' : 'text-slate-500'
             }`}
           >
@@ -209,11 +225,26 @@ export const Navbar: React.FC<NavbarProps> = ({
           </button>
           <button
             onClick={() => setActiveTab('analytics')}
-            className={`px-3 py-1 rounded-lg font-medium ${
+            className={`px-2.5 py-1 rounded-lg font-medium ${
               activeTab === 'analytics' ? 'text-indigo-500 font-bold bg-indigo-50 dark:bg-indigo-950/40' : 'text-slate-500'
             }`}
           >
             Analysen
+          </button>
+          <button
+            onClick={() => setActiveTab('taxes')}
+            className={`px-2.5 py-1 rounded-lg font-medium ${
+              activeTab === 'taxes' ? 'text-indigo-500 font-bold bg-indigo-50 dark:bg-indigo-950/40' : 'text-slate-500'
+            }`}
+          >
+            Steuern
+          </button>
+          <button
+            onClick={onLogout}
+            title="Abmelden"
+            className="px-2 py-1 rounded-lg font-medium text-rose-500 hover:bg-rose-500/10 flex items-center"
+          >
+            <LogOut className="w-3.5 h-3.5" />
           </button>
         </div>
 
