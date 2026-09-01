@@ -1,6 +1,6 @@
 import React from 'react';
 import { X, History, Sparkles, CheckCircle2, Tag, Wrench, Palette, Cpu } from 'lucide-react';
-import { CHANGELOG_DATA, APP_VERSION } from '../data/changelog';
+import { CHANGELOG_DATA, APP_VERSION } from '../changelog';
 
 interface ChangelogModalProps {
   isOpen: boolean;

@@ -25,7 +25,7 @@ import { AddTransactionModal } from './components/AddTransactionModal';
 import { PriceEditModal } from './components/PriceEditModal';
 import { ChangelogModal } from './components/ChangelogModal';
 import { SettingsModal } from './components/SettingsModal';
-import { APP_VERSION } from './data/changelog';
+import { APP_VERSION } from './changelog';
 import { PixelGoatIcon } from './components/PixelGoatIcon';
 import { 
   Download, 
