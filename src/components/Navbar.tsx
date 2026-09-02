@@ -10,7 +10,7 @@ import {
   ShieldCheck,
   LogOut
 } from 'lucide-react';
-import { PortfolioTotals, ThemeMode, UserProfile } from '../types';
+import { PortfolioTotals, ThemeMode, UserProfile, PortfolioCurrency } from '../types';
 import { PixelGoatIcon } from './PixelGoatIcon';
 
 interface NavbarProps {
@@ -27,6 +27,8 @@ interface NavbarProps {
   setActiveTab: (tab: 'dashboard' | 'transactions' | 'assets' | 'analytics' | 'taxes') => void;
   theme: ThemeMode;
   userProfile?: UserProfile;
+  currency?: PortfolioCurrency;
+  onToggleCurrency?: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -42,7 +44,9 @@ export const Navbar: React.FC<NavbarProps> = ({
   activeTab,
   setActiveTab,
   theme,
-  userProfile
+  userProfile,
+  currency = 'EUR',
+  onToggleCurrency
 }) => {
   const isLight = theme === 'light';
 
@@ -145,6 +149,21 @@ export const Navbar: React.FC<NavbarProps> = ({
 
           {/* Right Controls */}
           <div className="flex items-center space-x-2">
+
+            {/* Currency Quick Switcher (EUR / USD) */}
+            {onToggleCurrency && (
+              <button
+                onClick={onToggleCurrency}
+                title={`Währung umschalten: Aktuell ${currency === 'USD' ? 'US-Dollar ($)' : 'Euro (€)'}`}
+                className={`flex items-center space-x-1 px-2.5 py-1.5 rounded-lg text-xs font-bold border transition-all cursor-pointer ${
+                  currency === 'USD'
+                    ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/25'
+                    : 'bg-indigo-500/15 border-indigo-500/40 text-indigo-400 hover:bg-indigo-500/25'
+                }`}
+              >
+                <span>{currency === 'USD' ? '$ USD' : '€ EUR'}</span>
+              </button>
+            )}
 
             {/* Quick Live Price Refresh */}
             <button

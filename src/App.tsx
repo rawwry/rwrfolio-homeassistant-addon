@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { Transaction, AppSettings, ThemeMode } from './types';
+import { Transaction, AppSettings, ThemeMode, PortfolioCurrency } from './types';
 import { parseCryptoComCSV, parseCSVLines, USER_SAMPLE_CRYPTO_COM_CSV, exportTransactionsToCSV } from './utils/csvParser';
 import { calculateAssetSummaries } from './utils/portfolioCalculations';
 import { fetchLivePrices, getStoredCustomPrices, getCoinDetails, getLastPriceUpdateTime } from './utils/priceService';
@@ -54,6 +54,7 @@ const SETTINGS_STORAGE_KEY = 'rwrfolio_settings_v1';
 
 const DEFAULT_SETTINGS: AppSettings = {
   theme: 'dark',
+  currency: 'EUR',
   privacyMode: false,
   user: {
     username: 'admin',
@@ -215,8 +216,25 @@ export default function App() {
 
   // Calculate portfolio totals and summaries
   const { assets, totals } = useMemo(() => {
-    return calculateAssetSummaries(transactions, customPrices);
-  }, [transactions, customPrices]);
+    return calculateAssetSummaries(transactions, customPrices, settings.currency || 'EUR');
+  }, [transactions, customPrices, settings.currency]);
+
+  // Currency switcher callback (EUR <-> USD)
+  const handleToggleCurrency = async () => {
+    const nextCurrency: PortfolioCurrency = (settings.currency === 'USD') ? 'EUR' : 'USD';
+    const updatedSettings: AppSettings = {
+      ...settings,
+      currency: nextCurrency,
+    };
+    setSettings(updatedSettings);
+    try {
+      localStorage.setItem('rwrfolio_settings', JSON.stringify(updatedSettings));
+    } catch (e) {
+      console.error('Failed to write settings to localStorage', e);
+    }
+    await saveSettingsToApi(updatedSettings);
+    showToast(`Währung auf ${nextCurrency === 'USD' ? 'US-Dollar ($)' : 'Euro (€)'} umgestellt`, 'info');
+  };
 
   // Fetch live prices callback
   const handleRefreshPrices = useCallback(async (isSilent = false) => {
@@ -435,6 +453,8 @@ export default function App() {
         setActiveTab={setActiveTab}
         theme={settings.theme}
         userProfile={settings.user}
+        currency={settings.currency || 'EUR'}
+        onToggleCurrency={handleToggleCurrency}
       />
 
       {/* Main Container */}
@@ -529,7 +549,7 @@ export default function App() {
             </div>
 
             {/* Visual Charts */}
-            <PortfolioCharts assets={assets} transactions={transactions} />
+            <PortfolioCharts assets={assets} transactions={transactions} currency={settings.currency || 'EUR'} />
 
             {/* Asset DCA & Holdings Table with Profit/Loss calculation */}
             <AssetList
@@ -557,6 +577,7 @@ export default function App() {
 
               <TransactionTable
                 transactions={transactions}
+                currency={settings.currency || 'EUR'}
                 onEditTransaction={(tx) => {
                   setEditingTransaction(tx);
                   setIsAddModalOpen(true);
@@ -607,6 +628,7 @@ export default function App() {
 
             <TransactionTable
               transactions={transactions}
+              currency={settings.currency || 'EUR'}
               onEditTransaction={(tx) => {
                 setEditingTransaction(tx);
                 setIsAddModalOpen(true);
@@ -757,11 +779,12 @@ export default function App() {
           isOpen={true}
           symbol={priceEditTarget.symbol}
           currentPrice={priceEditTarget.price}
+          currency={settings.currency || 'EUR'}
           onClose={() => setPriceEditTarget(null)}
           onPriceUpdated={async (symbol, newPrice) => {
             setCustomPrices(prev => ({ ...prev, [symbol.toUpperCase()]: newPrice }));
             await savePricesToApi({ [symbol.toUpperCase()]: newPrice });
-            showToast(`Preis für ${symbol} auf ${newPrice} € gesetzt & in SQLite gespeichert`, 'success');
+            showToast(`Preis für ${symbol} auf ${newPrice} gesetzt & in SQLite gespeichert`, 'success');
           }}
         />
       )}

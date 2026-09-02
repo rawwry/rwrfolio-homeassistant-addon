@@ -11,7 +11,7 @@ import {
   YAxis, 
   CartesianGrid 
 } from 'recharts';
-import { AssetSummary, Transaction } from '../types';
+import { AssetSummary, Transaction, PortfolioCurrency } from '../types';
 import { generateInvestmentTimeline } from '../utils/portfolioCalculations';
 import { getCoinDetails } from '../utils/priceService';
 import { PieChart as PieIcon, TrendingUp, Calendar } from 'lucide-react';
@@ -19,28 +19,35 @@ import { PieChart as PieIcon, TrendingUp, Calendar } from 'lucide-react';
 interface PortfolioChartsProps {
   assets: AssetSummary[];
   transactions: Transaction[];
+  currency?: PortfolioCurrency;
 }
 
-export const PortfolioCharts: React.FC<PortfolioChartsProps> = ({ assets, transactions }) => {
-  const timelineData = generateInvestmentTimeline(transactions);
+export const PortfolioCharts: React.FC<PortfolioChartsProps> = ({
+  assets,
+  transactions,
+  currency = 'EUR' as PortfolioCurrency,
+}) => {
+  const isUSD = currency === 'USD';
+  const currencySymbol = isUSD ? '$' : '€';
+  const timelineData = generateInvestmentTimeline(transactions, currency as PortfolioCurrency);
 
   const pieData = assets
-    .filter(a => a.currentValueEUR > 0)
+    .filter(a => a.currentValue > 0)
     .map(a => {
       const details = getCoinDetails(a.symbol);
       return {
         name: a.symbol,
         fullName: a.name,
-        value: a.currentValueEUR,
+        value: a.currentValue,
         percentage: a.allocationPercentage,
         color: details.color || '#6366f1',
       };
     });
 
-  const formatEUR = (val: number) => {
-    return new Intl.NumberFormat('de-DE', {
+  const formatCurrency = (val: number) => {
+    return new Intl.NumberFormat(isUSD ? 'en-US' : 'de-DE', {
       style: 'currency',
-      currency: 'EUR',
+      currency: currency,
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
     }).format(val);
@@ -56,7 +63,7 @@ export const PortfolioCharts: React.FC<PortfolioChartsProps> = ({ assets, transa
             <span>{data.name} ({data.fullName})</span>
           </div>
           <div className="text-slate-300">
-            Wert: <strong className="text-white">{formatEUR(data.value)}</strong>
+            Wert: <strong className="text-white">{formatCurrency(data.value)}</strong>
           </div>
           <div className="text-indigo-400 font-semibold">
             Anteil: {data.percentage.toFixed(1)}%
@@ -77,10 +84,10 @@ export const PortfolioCharts: React.FC<PortfolioChartsProps> = ({ assets, transa
             <span>{data.formattedDate}</span>
           </div>
           <div className="text-slate-300">
-            Kauf: <strong className="text-emerald-400">+{formatEUR(data.addedEUR)}</strong> ({data.asset})
+            Kauf: <strong className="text-emerald-400">+{formatCurrency(data.added)}</strong> ({data.asset})
           </div>
           <div className="text-indigo-300">
-            Kumuliert investiert: <strong className="text-white">{formatEUR(data.investedCumEUR)}</strong>
+            Kumuliert investiert: <strong className="text-white">{formatCurrency(data.investedCum)}</strong>
           </div>
         </div>
       );
@@ -99,7 +106,7 @@ export const PortfolioCharts: React.FC<PortfolioChartsProps> = ({ assets, transa
               <PieIcon className="w-4 h-4 text-indigo-400" />
               <span>Asset-Allokation</span>
             </h3>
-            <span className="text-xs text-slate-400">nach aktuellem Wert</span>
+            <span className="text-xs text-slate-400">nach aktuellem Wert in {currency}</span>
           </div>
 
           {pieData.length > 0 ? (
@@ -156,7 +163,7 @@ export const PortfolioCharts: React.FC<PortfolioChartsProps> = ({ assets, transa
               <TrendingUp className="w-4 h-4 text-emerald-400" />
               <span>Investitions-Entwicklung über Zeit</span>
             </h3>
-            <span className="text-xs text-slate-400">Kumulierter Kapitaleinsatz</span>
+            <span className="text-xs text-slate-400">Kumulierter Kapitaleinsatz ({currency})</span>
           </div>
 
           {timelineData.length > 0 ? (
@@ -179,7 +186,7 @@ export const PortfolioCharts: React.FC<PortfolioChartsProps> = ({ assets, transa
                   <YAxis 
                     stroke="#64748b" 
                     fontSize={11} 
-                    tickFormatter={(v) => `${v}€`}
+                    tickFormatter={(v) => `${v}${currencySymbol}`}
                     tickLine={false}
                   />
                   <RechartsTooltip 
@@ -189,7 +196,7 @@ export const PortfolioCharts: React.FC<PortfolioChartsProps> = ({ assets, transa
                   />
                   <Area 
                     type="monotone" 
-                    dataKey="investedCumEUR" 
+                    dataKey="investedCum" 
                     stroke="#6366f1" 
                     strokeWidth={2.5}
                     fillOpacity={1} 
@@ -207,7 +214,7 @@ export const PortfolioCharts: React.FC<PortfolioChartsProps> = ({ assets, transa
 
         <div className="p-3 rounded-xl bg-slate-950/60 border border-slate-800/80 text-xs text-slate-400 flex items-center justify-between mt-2">
           <span>Gesamter Zukauf: <strong>{timelineData.length} Transaktionszeitpunkte</strong></span>
-          <span className="text-emerald-400 font-semibold font-mono">DCA Strategie</span>
+          <span className="text-emerald-400 font-semibold font-mono">DCA Strategie ({currency})</span>
         </div>
       </div>
 

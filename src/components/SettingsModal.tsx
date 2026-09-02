@@ -19,7 +19,7 @@ import {
   AlertTriangle,
   FolderLock
 } from 'lucide-react';
-import { AppSettings, ThemeMode } from '../types';
+import { AppSettings, ThemeMode, PortfolioCurrency } from '../types';
 import { sendTestEmailApi } from '../utils/apiClient';
 import { hashPassword } from '../utils/auth';
 
@@ -48,6 +48,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [showPassword, setShowPassword] = useState(false);
   
   const [theme, setTheme] = useState<ThemeMode>(settings.theme || 'dark');
+  const [currency, setCurrency] = useState<PortfolioCurrency>(settings.currency || 'EUR');
   const [privacyMode, setPrivacyMode] = useState(settings.privacyMode || false);
 
   // Email notifications
@@ -89,6 +90,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
     const updatedSettings: AppSettings = {
       theme,
+      currency,
       privacyMode,
       user: {
         username: cleanUsername,
@@ -442,6 +444,60 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       <div className="h-2 w-20 bg-slate-300 rounded" />
                     </div>
                     <p className="text-[11px] text-slate-500 mt-2">Klares, kontrastreiches helles Farbschema</p>
+                  </div>
+                </div>
+
+                {/* Currency Selection */}
+                <div className="space-y-2 pt-2">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-xs font-bold">Standard Portfolio-Währung (EUR / USD)</div>
+                      <p className={`text-[11px] ${theme === 'light' ? 'text-slate-500' : 'text-slate-400'}`}>
+                        Wähle die Hauptwährung für Gewinn/Verlust-Berechnungen und Durchschnitte.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div
+                      onClick={() => setCurrency('EUR')}
+                      className={`p-3.5 rounded-xl border-2 transition-all cursor-pointer flex items-center justify-between ${
+                        currency === 'EUR'
+                          ? 'border-indigo-500 bg-indigo-500/10'
+                          : theme === 'light' ? 'border-slate-200 bg-slate-50' : 'border-slate-800 bg-slate-900/50'
+                      }`}
+                    >
+                      <div className="flex items-center space-x-2.5">
+                        <div className="w-7 h-7 rounded-lg bg-indigo-600/20 text-indigo-400 font-bold font-mono text-sm flex items-center justify-center">
+                          €
+                        </div>
+                        <div>
+                          <div className="font-bold text-xs text-white">Euro (€ EUR)</div>
+                          <div className="text-[10px] text-slate-400">Europäische Standardwährung</div>
+                        </div>
+                      </div>
+                      {currency === 'EUR' && <Check className="w-4 h-4 text-indigo-400 font-bold" />}
+                    </div>
+
+                    <div
+                      onClick={() => setCurrency('USD')}
+                      className={`p-3.5 rounded-xl border-2 transition-all cursor-pointer flex items-center justify-between ${
+                        currency === 'USD'
+                          ? 'border-emerald-500 bg-emerald-500/10'
+                          : theme === 'light' ? 'border-slate-200 bg-slate-50' : 'border-slate-800 bg-slate-900/50'
+                      }`}
+                    >
+                      <div className="flex items-center space-x-2.5">
+                        <div className="w-7 h-7 rounded-lg bg-emerald-600/20 text-emerald-400 font-bold font-mono text-sm flex items-center justify-center">
+                          $
+                        </div>
+                        <div>
+                          <div className="font-bold text-xs text-white">US-Dollar ($ USD)</div>
+                          <div className="text-[10px] text-emerald-400/90 font-medium">Nativ wie in Crypto.com App</div>
+                        </div>
+                      </div>
+                      {currency === 'USD' && <Check className="w-4 h-4 text-emerald-400 font-bold" />}
+                    </div>
                   </div>
                 </div>
 

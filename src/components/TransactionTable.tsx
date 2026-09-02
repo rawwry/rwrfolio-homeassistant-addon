@@ -1,20 +1,16 @@
 import React, { useState, useMemo } from 'react';
-import { Transaction, TransactionType } from '../types';
+import { Transaction, TransactionType, PortfolioCurrency } from '../types';
 import { 
   Search, 
-  Filter, 
   Trash2, 
   Edit, 
   ArrowDownLeft, 
   ArrowUpRight, 
   Gift, 
   RefreshCw, 
-  ExternalLink,
-  Calendar,
-  Layers,
-  ChevronLeft,
-  ChevronRight,
-  Info
+  ChevronLeft, 
+  ChevronRight, 
+  Info 
 } from 'lucide-react';
 import { getCoinDetails } from '../utils/priceService';
 
@@ -25,6 +21,7 @@ interface TransactionTableProps {
   onBulkDelete?: (ids: string[]) => void;
   selectedAssetFilter?: string;
   onClearAssetFilter?: () => void;
+  currency?: PortfolioCurrency;
 }
 
 export const TransactionTable: React.FC<TransactionTableProps> = ({
@@ -34,6 +31,7 @@ export const TransactionTable: React.FC<TransactionTableProps> = ({
   onBulkDelete,
   selectedAssetFilter,
   onClearAssetFilter,
+  currency = 'EUR',
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [assetFilter, setAssetFilter] = useState(selectedAssetFilter || 'ALL');
@@ -62,15 +60,6 @@ export const TransactionTable: React.FC<TransactionTableProps> = ({
       }
     }
     return Array.from(coins).sort();
-  }, [transactions]);
-
-  // Extract unique sources for dropdown
-  const uniqueSources = useMemo(() => {
-    const sources = new Set<string>();
-    for (const t of transactions) {
-      if (t.source) sources.add(t.source);
-    }
-    return Array.from(sources);
   }, [transactions]);
 
   // Filtered and sorted transactions
@@ -245,7 +234,7 @@ export const TransactionTable: React.FC<TransactionTableProps> = ({
 
   const handleBulkDelete = () => {
     if (selectedIds.size === 0) return;
-    if (confirm(`${selectedIds.size} ausgewählte Transaktionen wirklich löschen?`)) {
+    if (window.confirm(`${selectedIds.size} ausgewählte Transaktionen wirklich löschen?`)) {
       if (onBulkDelete) {
         onBulkDelete(Array.from(selectedIds));
       } else {
@@ -281,7 +270,7 @@ export const TransactionTable: React.FC<TransactionTableProps> = ({
               </span>
               <button
                 onClick={handleBulkDelete}
-                className="inline-flex items-center space-x-1 px-3 py-1.5 rounded-lg text-xs font-semibold text-rose-300 bg-rose-950/60 hover:bg-rose-900 border border-rose-800 transition-colors"
+                className="inline-flex items-center space-x-1 px-3 py-1.5 rounded-lg text-xs font-semibold text-rose-300 bg-rose-950/60 hover:bg-rose-900 border border-rose-800 transition-colors cursor-pointer"
               >
                 <Trash2 className="w-3.5 h-3.5" />
                 <span>Löschen</span>
@@ -408,8 +397,8 @@ export const TransactionTable: React.FC<TransactionTableProps> = ({
                   className="rounded border-slate-700 bg-slate-900 text-indigo-600 focus:ring-indigo-500"
                 />
               </th>
-              <th className="py-3.5 px-4">Datum & Uhrzeit</th>
-              <th className="py-3.5 px-4">Typ & Börse</th>
+              <th className="py-3.5 px-4">Datum &amp; Uhrzeit</th>
+              <th className="py-3.5 px-4">Typ &amp; Börse</th>
               <th className="py-3.5 px-4">Erhalten / Asset</th>
               <th className="py-3.5 px-4 text-right">Eingezahlt / Ausgegeben</th>
               <th className="py-3.5 px-4 text-right">Einzelkurs</th>
@@ -486,8 +475,17 @@ export const TransactionTable: React.FC<TransactionTableProps> = ({
                     <td className="py-3.5 px-4 text-right font-mono font-medium text-slate-200">
                       {tx.spentAmount > 0 ? (
                         <div>
-                          <span>{formatEUR(tx.spentAmount)}</span>
-                          {tx.spentCurrency !== 'EUR' && (
+                          <span>
+                            {currency === 'USD'
+                              ? (tx.nativeAmountUSD ? `$${tx.nativeAmountUSD.toFixed(2)}` : (tx.spentCurrency === 'USD' ? `$${tx.spentAmount.toFixed(2)}` : formatEUR(tx.spentAmount)))
+                              : (tx.spentCurrency === 'USD' ? `$${tx.spentAmount.toFixed(2)}` : formatEUR(tx.spentAmount))}
+                          </span>
+                          {tx.nativeAmountUSD && tx.spentCurrency !== 'USD' && currency !== 'USD' && (
+                            <span className="text-[11px] text-slate-400 block font-sans">
+                              (≈ ${tx.nativeAmountUSD.toFixed(2)})
+                            </span>
+                          )}
+                          {tx.spentCurrency !== 'EUR' && tx.spentCurrency !== 'USD' && (
                             <span className="text-xs text-slate-400 block font-sans">
                               ({tx.spentAmount} {tx.spentCurrency})
                             </span>
@@ -501,9 +499,18 @@ export const TransactionTable: React.FC<TransactionTableProps> = ({
                     {/* Calculated Unit Price */}
                     <td className="py-3.5 px-4 text-right font-mono text-slate-300">
                       {unitPrice > 0 ? (
-                        <span className="text-indigo-300 font-medium">
-                          {formatEUR(unitPrice, unitPriceDecimals)}
-                        </span>
+                        <div>
+                          <span className="text-indigo-300 font-medium">
+                            {currency === 'USD' && tx.pricePerUnitUSD
+                              ? `$${tx.pricePerUnitUSD.toFixed(unitPriceDecimals)}`
+                              : formatEUR(unitPrice, unitPriceDecimals)}
+                          </span>
+                          {currency === 'USD' && !tx.pricePerUnitUSD && (
+                            <span className="text-[10px] text-slate-400 block">
+                              {formatEUR(unitPrice, unitPriceDecimals)}
+                            </span>
+                          )}
+                        </div>
                       ) : (
                         <span className="text-slate-500">-</span>
                       )}
@@ -514,7 +521,7 @@ export const TransactionTable: React.FC<TransactionTableProps> = ({
                       <button
                         onClick={() => setDetailTx(tx)}
                         title="Transaktionsdetails einsehen"
-                        className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-300 hover:bg-slate-800 transition-colors"
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-300 hover:bg-slate-800 transition-colors cursor-pointer"
                       >
                         <Info className="w-4 h-4" />
                       </button>
@@ -526,18 +533,18 @@ export const TransactionTable: React.FC<TransactionTableProps> = ({
                         <button
                           onClick={() => onEditTransaction(tx)}
                           title="Bearbeiten"
-                          className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+                          className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
                         >
                           <Edit className="w-3.5 h-3.5" />
                         </button>
                         <button
                           onClick={() => {
-                            if (confirm(`Transaktion ${tx.description || tx.receivedCurrency} wirklich löschen?`)) {
+                            if (window.confirm(`Transaktion ${tx.description || tx.receivedCurrency} wirklich löschen?`)) {
                               onDeleteTransaction(tx.id);
                             }
                           }}
                           title="Löschen"
-                          className="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-slate-800 transition-colors"
+                          className="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-slate-800 transition-colors cursor-pointer"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
@@ -561,7 +568,7 @@ export const TransactionTable: React.FC<TransactionTableProps> = ({
             <button
               onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
               disabled={currentPage === 1}
-              className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
@@ -571,7 +578,7 @@ export const TransactionTable: React.FC<TransactionTableProps> = ({
             <button
               onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
               disabled={currentPage === totalPages}
-              className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
             >
               <ChevronRight className="w-4 h-4" />
             </button>
@@ -587,7 +594,7 @@ export const TransactionTable: React.FC<TransactionTableProps> = ({
               <h4 className="font-bold text-white text-base">Transaktionsdetails</h4>
               <button 
                 onClick={() => setDetailTx(null)}
-                className="text-slate-400 hover:text-white text-lg font-bold"
+                className="text-slate-400 hover:text-white text-lg font-bold cursor-pointer"
               >
                 &times;
               </button>
@@ -647,7 +654,7 @@ export const TransactionTable: React.FC<TransactionTableProps> = ({
             <div className="pt-2 flex justify-end">
               <button
                 onClick={() => setDetailTx(null)}
-                className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-medium text-xs transition-colors"
+                className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-medium text-xs transition-colors cursor-pointer"
               >
                 Schließen
               </button>
