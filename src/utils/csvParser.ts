@@ -1,6 +1,7 @@
 import { Transaction, TransactionType, ExchangeSource, CSVParseResult } from '../types';
 
 export const USER_SAMPLE_CRYPTO_COM_CSV = `Timestamp (UTC),Transaction Description,Currency,Amount,To Currency,To Amount,Native Currency,Native Amount,Native Amount (in USD),Transaction Kind,Transaction Hash
+2026-09-01 21:46:44,Bought POL,EUR,-300.00,POL,3537.49,USD,343.713311999867340190124011521,343.713311999867340190124011521,viban_purchase,
 2026-09-01 14:41:18,Bought HBAR,EUR,-300.00,HBAR,4416.65,USD,344.006896499925429975932745594,344.006896499925429975932745594,viban_purchase,
 2026-09-01 14:40:48,Bought AKT,EUR,-300.00,AKT,629.608,USD,343.997999999829363232080084643,343.997999999829363232080084643,viban_purchase,
 2026-09-01 14:40:16,Bought DOT,EUR,-300.00,DOT,379.291,USD,344.039516999927701461339347683,344.039516999927701461339347683,viban_purchase,
@@ -167,12 +168,29 @@ export function parseCryptoComCSV(rows: string[][]): Transaction[] {
       timestamp = new Date().toISOString();
     }
 
-    // Price per unit in EUR
+    // Price per unit in EUR & USD
     let pricePerUnitEUR: number | undefined = undefined;
-    if (type === 'BUY' && recAmt > 0 && spentCurr.toUpperCase() === 'EUR') {
-      pricePerUnitEUR = spentAmt / recAmt;
-    } else if (type === 'BUY' && recAmt > 0 && nativeCurr.toUpperCase() === 'EUR' && nativeAmount) {
-      pricePerUnitEUR = nativeAmount / recAmt;
+    let pricePerUnitUSD: number | undefined = undefined;
+
+    if (type === 'BUY' && recAmt > 0) {
+      if (spentCurr.toUpperCase() === 'EUR') {
+        pricePerUnitEUR = spentAmt / recAmt;
+      } else if (nativeCurr.toUpperCase() === 'EUR' && nativeAmount) {
+        pricePerUnitEUR = nativeAmount / recAmt;
+      }
+
+      if (nativeUSD && nativeUSD > 0) {
+        pricePerUnitUSD = nativeUSD / recAmt;
+      } else if (spentCurr.toUpperCase() === 'USD') {
+        pricePerUnitUSD = spentAmt / recAmt;
+      } else if (nativeCurr.toUpperCase() === 'USD' && nativeAmount) {
+        pricePerUnitUSD = nativeAmount / recAmt;
+      }
+
+      // Cross-derive if one is present and we have tx amounts
+      if (!pricePerUnitEUR && pricePerUnitUSD && nativeUSD && spentAmt > 0 && spentCurr.toUpperCase() === 'EUR') {
+        pricePerUnitEUR = spentAmt / recAmt;
+      }
     }
 
     // Unique deterministic id based on data content
@@ -189,6 +207,7 @@ export function parseCryptoComCSV(rows: string[][]): Transaction[] {
       receivedCurrency: recCurr || currency,
       receivedAmount: recAmt,
       pricePerUnitEUR,
+      pricePerUnitUSD,
       nativeCurrency: nativeCurr,
       nativeAmount,
       nativeAmountUSD: nativeUSD,
