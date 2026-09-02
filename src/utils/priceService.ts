@@ -21,8 +21,8 @@ export const KNOWN_COINS: Record<string, CoinInfo> = {
   AVAX: { id: 'avalanche-2', name: 'Avalanche', symbol: 'AVAX', defaultPriceEUR: 27.50, color: '#e84142' },
   LINK: { id: 'chainlink', name: 'Chainlink', symbol: 'LINK', defaultPriceEUR: 12.80, color: '#375bd2' },
   NEAR: { id: 'near', name: 'NEAR Protocol', symbol: 'NEAR', defaultPriceEUR: 4.60, color: '#000000' },
-  MATIC: { id: 'matic-network', name: 'Polygon', symbol: 'MATIC', defaultPriceEUR: 0.48, color: '#8247e5' },
-  POL: { id: 'matic-network', name: 'Polygon Ecosystem Token', symbol: 'POL', defaultPriceEUR: 0.48, color: '#8247e5' },
+  MATIC: { id: 'polygon-ecosystem-token', name: 'Polygon', symbol: 'MATIC', defaultPriceEUR: 0.08, color: '#8247e5' },
+  POL: { id: 'polygon-ecosystem-token', name: 'Polygon Ecosystem Token', symbol: 'POL', defaultPriceEUR: 0.08, color: '#8247e5' },
   BNB: { id: 'binancecoin', name: 'BNB', symbol: 'BNB', defaultPriceEUR: 540, color: '#f3ba2f' },
   SUI: { id: 'sui', name: 'Sui', symbol: 'SUI', defaultPriceEUR: 1.80, color: '#4da2ff' },
   KAS: { id: 'kaspa', name: 'Kaspa', symbol: 'KAS', defaultPriceEUR: 0.16, color: '#70c7ba' },
@@ -43,7 +43,16 @@ const STORAGE_LAST_UPDATE_KEY = 'rwrfolio_prices_last_updated';
 export function getStoredCustomPrices(): Record<string, number> {
   try {
     const data = localStorage.getItem(STORAGE_PRICE_KEY);
-    return data ? JSON.parse(data) : {};
+    if (!data) return {};
+    const parsed = JSON.parse(data);
+    // Sanitize old erroneous MATIC/POL price from previous CoinGecko matic-network bug (~0.1089)
+    if (parsed.POL && parsed.POL > 0.10 && parsed.POL < 0.12) {
+      delete parsed.POL;
+    }
+    if (parsed.MATIC && parsed.MATIC > 0.10 && parsed.MATIC < 0.12) {
+      delete parsed.MATIC;
+    }
+    return parsed;
   } catch (e) {
     console.error('Failed to read stored prices', e);
     return {};
@@ -108,9 +117,8 @@ export function getCoinDetails(symbol: string): { name: string; color: string } 
 
 /**
  * Fetch real-time market prices with multi-source fallback:
- * 1. Binance Direct (fast, highly available)
- * 2. CryptoCompare (multi-symbol batching)
- * 3. CoinGecko API
+ * 1. Binance Direct (fast, highly available, real-time order book prices)
+ * 2. CoinGecko API (fallback for coins not listed on Binance EUR/USDT, e.g. AKT, CRO, KAS)
  */
 export async function fetchLivePrices(symbols: string[]): Promise<Record<string, number>> {
   const uniqueSymbols = Array.from(new Set(symbols.map(s => s.toUpperCase()))).filter(s => s !== 'EUR');
@@ -118,31 +126,59 @@ export async function fetchLivePrices(symbols: string[]): Promise<Record<string,
 
   const results: Record<string, number> = {};
 
-  // 1. Try CryptoCompare (supports almost all tokens directly to EUR in one request)
+  // 1. Binance Public Ticker (High availability, real-time spot prices, zero rate-limit blocks)
   try {
-    const fsyms = uniqueSymbols.join(',');
-    const url = `https://min-api.cryptocompare.com/data/pricemulti?fsyms=${fsyms}&tsyms=EUR`;
-    const res = await fetch(url);
+    const res = await fetch('https://api.binance.com/api/v3/ticker/price');
     if (res.ok) {
-      const data = await res.json();
+      const data: Array<{ symbol: string; price: string }> = await res.json();
+      const tickerMap = new Map<string, number>();
+      for (const item of data) {
+        tickerMap.set(item.symbol, parseFloat(item.price));
+      }
+      const eurUsdt = tickerMap.get('EURUSDT') || 1.16;
+
       for (const sym of uniqueSymbols) {
-        if (data[sym]?.EUR && typeof data[sym].EUR === 'number' && data[sym].EUR > 0) {
-          results[sym] = data[sym].EUR;
-          saveStoredCustomPrice(sym, data[sym].EUR);
+        if (sym === 'USDT') {
+          const price = 1 / eurUsdt;
+          results[sym] = price;
+          saveStoredCustomPrice(sym, price);
+        } else if (sym === 'USDC' && tickerMap.has('USDCUSDT')) {
+          const price = (tickerMap.get('USDCUSDT') || 1) / eurUsdt;
+          results[sym] = price;
+          saveStoredCustomPrice(sym, price);
+        } else if (tickerMap.has(`${sym}EUR`)) {
+          const price = tickerMap.get(`${sym}EUR`)!;
+          results[sym] = price;
+          saveStoredCustomPrice(sym, price);
+        } else if (tickerMap.has(`${sym}USDT`)) {
+          const price = tickerMap.get(`${sym}USDT`)! / eurUsdt;
+          results[sym] = price;
+          saveStoredCustomPrice(sym, price);
         }
+      }
+
+      // Handle POL / MATIC equivalence on Binance if only one is returned
+      if (results.POL && !results.MATIC) {
+        results.MATIC = results.POL;
+        saveStoredCustomPrice('MATIC', results.POL);
+      } else if (results.MATIC && !results.POL) {
+        results.POL = results.MATIC;
+        saveStoredCustomPrice('POL', results.MATIC);
       }
     }
   } catch (err) {
-    console.warn('CryptoCompare fetch failed, trying fallback sources', err);
+    console.warn('Binance price fetch error, attempting CoinGecko fallback', err);
   }
 
-  // 2. For any remaining symbols, try CoinGecko
+  // 2. CoinGecko API fallback (covers coins not on Binance, e.g. AKT, CRO, KAS)
   const missingSymbols = uniqueSymbols.filter(s => !results[s]);
   if (missingSymbols.length > 0) {
     try {
-      const geckoIds = missingSymbols
-        .map(s => KNOWN_COINS[s]?.id)
-        .filter(Boolean) as string[];
+      const geckoIds = Array.from(new Set(
+        missingSymbols
+          .map(s => KNOWN_COINS[s]?.id)
+          .filter(Boolean)
+      )) as string[];
 
       if (geckoIds.length > 0) {
         const url = `https://api.coingecko.com/api/v3/simple/price?ids=${geckoIds.join(',')}&vs_currencies=eur`;
@@ -152,63 +188,22 @@ export async function fetchLivePrices(symbols: string[]): Promise<Record<string,
           for (const sym of missingSymbols) {
             const id = KNOWN_COINS[sym]?.id;
             if (id && data[id]?.eur && data[id].eur > 0) {
-              results[sym] = data[id].eur;
-              saveStoredCustomPrice(sym, data[id].eur);
+              const price = data[id].eur;
+              results[sym] = price;
+              saveStoredCustomPrice(sym, price);
             }
           }
         }
       }
     } catch (err) {
-      console.warn('CoinGecko fetch failed', err);
+      console.warn('CoinGecko fallback fetch failed', err);
     }
   }
 
-  // 3. For any still missing, try Binance public ticker
-  const stillMissing = uniqueSymbols.filter(s => !results[s]);
-  if (stillMissing.length > 0) {
-    try {
-      // Get EURUSDT rate to convert USDT pairs if EUR pair not available
-      let eurRate = 1.08;
-      try {
-        const eurUsdtRes = await fetch('https://api.binance.com/api/v3/ticker/price?symbol=EURUSDT');
-        if (eurUsdtRes.ok) {
-          const d = await eurUsdtRes.json();
-          eurRate = parseFloat(d.price) || 1.08;
-        }
-      } catch {
-        // use fallback rate
-      }
-
-      await Promise.all(stillMissing.map(async (sym) => {
-        try {
-          // Try SYMBOLEUR first
-          const eurPairRes = await fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${sym}EUR`);
-          if (eurPairRes.ok) {
-            const d = await eurPairRes.json();
-            const price = parseFloat(d.price);
-            if (price > 0) {
-              results[sym] = price;
-              saveStoredCustomPrice(sym, price);
-              return;
-            }
-          }
-          // Try SYMBOLUSDT / eurRate
-          const usdtPairRes = await fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${sym}USDT`);
-          if (usdtPairRes.ok) {
-            const d = await usdtPairRes.json();
-            const usdtPrice = parseFloat(d.price);
-            if (usdtPrice > 0) {
-              const eurPrice = usdtPrice / eurRate;
-              results[sym] = eurPrice;
-              saveStoredCustomPrice(sym, eurPrice);
-            }
-          }
-        } catch {
-          // Skip
-        }
-      }));
-    } catch (err) {
-      console.warn('Binance fallback ticker error', err);
+  // 3. Fallback for any still missing symbols to default prices
+  for (const sym of uniqueSymbols) {
+    if (!results[sym] && KNOWN_COINS[sym]?.defaultPriceEUR) {
+      results[sym] = KNOWN_COINS[sym].defaultPriceEUR;
     }
   }
 

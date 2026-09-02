@@ -146,13 +146,37 @@ export default function App() {
         // Fetch stored prices from SQLite
         const serverPrices = await fetchPricesFromApi();
         if (serverPrices && Object.keys(serverPrices).length > 0) {
-          setCustomPrices(prev => ({ ...prev, ...serverPrices }));
+          const cleanedPrices = { ...serverPrices };
+          // Sanitize old Polygon matic-network bug price (~0.1089)
+          if (cleanedPrices.POL && cleanedPrices.POL > 0.10 && cleanedPrices.POL < 0.12) {
+            delete cleanedPrices.POL;
+          }
+          if (cleanedPrices.MATIC && cleanedPrices.MATIC > 0.10 && cleanedPrices.MATIC < 0.12) {
+            delete cleanedPrices.MATIC;
+          }
+          setCustomPrices(prev => ({ ...prev, ...cleanedPrices }));
         }
 
         // Fetch settings from SQLite
         const serverSettings = await fetchSettingsFromApi();
         if (serverSettings) {
           setSettings(prev => ({ ...prev, ...serverSettings }));
+        }
+
+        // Fetch fresh real-time prices for all active portfolio assets
+        const activeSymbols = new Set<string>();
+        (serverTxs || []).forEach(t => {
+          if (t.receivedCurrency && t.receivedCurrency !== 'EUR') activeSymbols.add(t.receivedCurrency.toUpperCase());
+          if (t.spentCurrency && t.spentCurrency !== 'EUR') activeSymbols.add(t.spentCurrency.toUpperCase());
+        });
+        if (activeSymbols.size > 0) {
+          fetchLivePrices(Array.from(activeSymbols)).then(livePrices => {
+            if (Object.keys(livePrices).length > 0) {
+              setCustomPrices(prev => ({ ...prev, ...livePrices }));
+              setLastUpdatedTime(new Date().toISOString());
+              savePricesToApi(livePrices);
+            }
+          });
         }
       } catch (err) {
         console.warn('SQLite Sync warning:', err);
