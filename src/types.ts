@@ -70,6 +70,7 @@ export interface UserProfile {
   email: string;
   hasPassword?: boolean;
   passwordHash?: string; // stored locally/in SQLite on the Pi
+  isInitialAdmin?: boolean; // indicates default admin/admin that should be customized
   updatedAt?: string;
 }
 

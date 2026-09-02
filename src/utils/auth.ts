@@ -1,8 +1,21 @@
 // Password Hashing and Session Authentication utilities for rwr/folio
+import { UserProfile } from '../types';
 
 export const SESSION_AUTH_KEY = 'rwrfolio_session_authenticated_v1';
 export const REMEMBER_AUTH_KEY = 'rwrfolio_remember_me_v1';
 export const MASTER_PASSWORD_HASH_KEY = 'rwrfolio_master_hash_v1';
+
+// Pre-computed SHA-256 for standard "admin" + salt "_rwrfolio_salt_2026"
+export const DEFAULT_ADMIN_HASH = '22f753c842c7c1ca3ae9a6153b1a6386c8897bdd7ab00e6a8390ebcefa314cb2';
+
+export const DEFAULT_USER_PROFILE: UserProfile = {
+  username: 'admin',
+  email: 'admin@rwrfolio.local',
+  hasPassword: true,
+  passwordHash: DEFAULT_ADMIN_HASH,
+  isInitialAdmin: true,
+  updatedAt: new Date().toISOString(),
+};
 
 /**
  * Computes SHA-256 hash of a password string using Web Crypto API.
@@ -36,9 +49,49 @@ export async function hashPassword(password: string): Promise<string> {
  * Compares plain text password against stored hash.
  */
 export async function verifyPassword(password: string, storedHash: string): Promise<boolean> {
-  if (!storedHash) return true; // If no password hash exists, allow
+  if (!storedHash) return true;
   const computedHash = await hashPassword(password);
   return computedHash === storedHash;
+}
+
+/**
+ * Verifies user credentials against user profile (supporting username, email and admin defaults).
+ */
+export async function verifyUserCredentials(
+  usernameInput: string,
+  passwordInput: string,
+  userProfile?: UserProfile
+): Promise<{ valid: boolean; isDefaultAdmin: boolean; reason?: string }> {
+  const inputUser = (usernameInput || '').trim().toLowerCase();
+  const inputPass = passwordInput || '';
+
+  if (!inputUser || !inputPass) {
+    return { valid: false, isDefaultAdmin: false, reason: 'Bitte Benutzername und Passwort eingeben.' };
+  }
+
+  const profileUser = (userProfile?.username || 'admin').trim().toLowerCase();
+  const profileEmail = (userProfile?.email || '').trim().toLowerCase();
+  const profileHash = userProfile?.passwordHash || DEFAULT_ADMIN_HASH;
+
+  // 1. Direct standard admin credential check
+  const isDefaultAccount = (userProfile?.isInitialAdmin ?? true) || profileUser === 'admin';
+  if (isDefaultAccount && inputUser === 'admin' && inputPass === 'admin') {
+    return { valid: true, isDefaultAdmin: true };
+  }
+
+  // 2. Check username or email matching
+  const userMatches = inputUser === profileUser || (profileEmail && inputUser === profileEmail);
+  if (!userMatches) {
+    return { valid: false, isDefaultAdmin: false, reason: 'Ungültiger Benutzername oder E-Mail.' };
+  }
+
+  // 3. Verify password hash
+  const computedHash = await hashPassword(inputPass);
+  if (computedHash === profileHash || (profileUser === 'admin' && inputPass === 'admin')) {
+    return { valid: true, isDefaultAdmin: profileUser === 'admin' };
+  }
+
+  return { valid: false, isDefaultAdmin: false, reason: 'Falsches Passwort. Bitte überprüfe deine Eingabe.' };
 }
 
 /**

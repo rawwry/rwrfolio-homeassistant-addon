@@ -1,0 +1,274 @@
+import fs from 'fs';
+import path from 'path';
+import sharp from 'sharp';
+
+// High-end vector SVG Goat Icon for rwr/folio
+const svgIcon = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <!-- Background Gradients -->
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0b0f19" />
+      <stop offset="50%" stop-color="#0f172a" />
+      <stop offset="100%" stop-color="#1e1b4b" />
+    </linearGradient>
+
+    <radialGradient id="indigoGlow" cx="50%" cy="40%" r="55%">
+      <stop offset="0%" stop-color="#6366f1" stop-opacity="0.35" />
+      <stop offset="60%" stop-color="#4f46e5" stop-opacity="0.12" />
+      <stop offset="100%" stop-color="#0f172a" stop-opacity="0" />
+    </radialGradient>
+
+    <!-- Horn Gradients (Golden / Amber metallic) -->
+    <linearGradient id="hornGradLeft" x1="20%" y1="0%" x2="80%" y2="100%">
+      <stop offset="0%" stop-color="#fef08a" />
+      <stop offset="30%" stop-color="#f59e0b" />
+      <stop offset="70%" stop-color="#d97706" />
+      <stop offset="100%" stop-color="#78350f" />
+    </linearGradient>
+
+    <linearGradient id="hornGradRight" x1="80%" y1="0%" x2="20%" y2="100%">
+      <stop offset="0%" stop-color="#fef08a" />
+      <stop offset="30%" stop-color="#f59e0b" />
+      <stop offset="70%" stop-color="#d97706" />
+      <stop offset="100%" stop-color="#78350f" />
+    </linearGradient>
+
+    <linearGradient id="hornFacet" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#fbbf24" stop-opacity="0.8" />
+      <stop offset="100%" stop-color="#b45309" stop-opacity="0.9" />
+    </linearGradient>
+
+    <!-- Face & Body Gradients (Platinum / Sleek Slate) -->
+    <linearGradient id="faceGradCenter" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" />
+      <stop offset="60%" stop-color="#e2e8f0" />
+      <stop offset="100%" stop-color="#cbd5e1" />
+    </linearGradient>
+
+    <linearGradient id="faceGradLeft" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f8fafc" />
+      <stop offset="100%" stop-color="#94a3b8" />
+    </linearGradient>
+
+    <linearGradient id="faceGradRight" x1="100%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#e2e8f0" />
+      <stop offset="100%" stop-color="#64748b" />
+    </linearGradient>
+
+    <linearGradient id="muzzleGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#cbd5e1" />
+      <stop offset="100%" stop-color="#64748b" />
+    </linearGradient>
+
+    <linearGradient id="beardGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#94a3b8" />
+      <stop offset="60%" stop-color="#cbd5e1" />
+      <stop offset="100%" stop-color="#f8fafc" />
+    </linearGradient>
+
+    <!-- Eye Glow -->
+    <linearGradient id="eyeGlow" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8" />
+      <stop offset="100%" stop-color="#0284c7" />
+    </linearGradient>
+
+    <!-- Border Ring Gradient -->
+    <linearGradient id="borderGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#6366f1" stop-opacity="0.8" />
+      <stop offset="50%" stop-color="#38bdf8" stop-opacity="0.3" />
+      <stop offset="100%" stop-color="#f59e0b" stop-opacity="0.7" />
+    </linearGradient>
+  </defs>
+
+  <!-- iOS App Icon Squircle Canvas -->
+  <rect x="0" y="0" width="512" height="512" rx="114" fill="url(#bgGrad)" />
+  <rect x="0" y="0" width="512" height="512" rx="114" fill="url(#indigoGlow)" />
+  <rect x="4" y="4" width="504" height="504" rx="110" fill="none" stroke="url(#borderGrad)" stroke-width="3" opacity="0.6" />
+
+  <!-- Subtle Geometric Crypto Shield Background Accents -->
+  <path d="M256 60 L390 125 L390 280 Q256 420 256 420 Q122 280 122 125 Z" fill="none" stroke="#6366f1" stroke-width="1.5" stroke-dasharray="6 6" opacity="0.25" />
+
+  <!-- Left Horn (Sweeping, Majestic, Ridge Faceted) -->
+  <!-- Outer Back Horn -->
+  <path d="M228 175 C200 130 148 95 88 120 C52 135 48 178 72 196 C98 216 140 188 188 198 C206 202 222 210 232 218 Z" fill="url(#hornGradLeft)" />
+  <!-- Left Horn Ridge Highlight -->
+  <path d="M224 180 C198 140 152 108 96 130 C72 141 68 168 85 182 C108 200 146 178 190 186 Z" fill="url(#hornFacet)" opacity="0.8" />
+  <!-- Horn Segment Ridges -->
+  <path d="M120 132 C124 148 132 160 140 166" stroke="#78350f" stroke-width="3.5" stroke-linecap="round" fill="none" />
+  <path d="M152 142 C158 158 168 170 178 176" stroke="#78350f" stroke-width="3.5" stroke-linecap="round" fill="none" />
+  <path d="M185 160 C192 174 202 186 212 192" stroke="#78350f" stroke-width="3" stroke-linecap="round" fill="none" />
+
+  <!-- Right Horn (Sweeping, Majestic, Ridge Faceted) -->
+  <!-- Outer Back Horn -->
+  <path d="M284 175 C312 130 364 95 424 120 C460 135 464 178 440 196 C414 216 372 188 324 198 C306 202 290 210 280 218 Z" fill="url(#hornGradRight)" />
+  <!-- Right Horn Ridge Highlight -->
+  <path d="M288 180 C314 140 360 108 416 130 C440 141 444 168 427 182 C404 200 366 178 322 186 Z" fill="url(#hornFacet)" opacity="0.8" />
+  <!-- Right Horn Segment Ridges -->
+  <path d="M392 132 C388 148 380 160 372 166" stroke="#78350f" stroke-width="3.5" stroke-linecap="round" fill="none" />
+  <path d="M360 142 C354 158 344 170 334 176" stroke="#78350f" stroke-width="3.5" stroke-linecap="round" fill="none" />
+  <path d="M327 160 C320 174 310 186 300 192" stroke="#78350f" stroke-width="3" stroke-linecap="round" fill="none" />
+
+  <!-- Goat Ears (Alert, Sculpted) -->
+  <!-- Left Ear -->
+  <path d="M195 220 L108 245 C94 249 92 262 104 268 L188 256 Z" fill="url(#faceGradLeft)" />
+  <path d="M182 228 L118 248 C110 251 112 258 120 260 L180 252 Z" fill="#f472b6" opacity="0.5" />
+  <!-- Right Ear -->
+  <path d="M317 220 L404 245 C418 249 420 262 408 268 L324 256 Z" fill="url(#faceGradRight)" />
+  <path d="M330 228 L394 248 C402 251 400 258 392 260 L332 252 Z" fill="#f472b6" opacity="0.5" />
+
+  <!-- Head Base / Crown -->
+  <path d="M210 190 L302 190 L318 240 L194 240 Z" fill="#e2e8f0" />
+
+  <!-- Sculpted Faceted Head Structure (Fintech Low-Poly/Vector Style) -->
+  <!-- Left Forehead Plate -->
+  <polygon points="256,192 194,240 220,295 256,275" fill="url(#faceGradLeft)" />
+  <!-- Right Forehead Plate -->
+  <polygon points="256,192 318,240 292,295 256,275" fill="url(#faceGradRight)" />
+  <!-- Center Forehead Bridge -->
+  <polygon points="256,192 238,275 256,310 274,275" fill="url(#faceGradCenter)" />
+
+  <!-- Cheeks -->
+  <!-- Left Cheek -->
+  <polygon points="194,240 180,300 226,345 220,295" fill="#cbd5e1" />
+  <!-- Right Cheek -->
+  <polygon points="318,240 332,300 286,345 292,295" fill="#94a3b8" />
+
+  <!-- Goat Eyes (Piercing, horizontal tech pupil) -->
+  <!-- Left Eye Frame -->
+  <polygon points="186,268 218,262 216,278 188,276" fill="#090d16" />
+  <!-- Left Iris / Neon Cyan Glow -->
+  <rect x="192" y="267" width="18" height="6" rx="2" fill="url(#eyeGlow)" />
+  <circle cx="204" cy="270" r="1.5" fill="#ffffff" />
+
+  <!-- Right Eye Frame -->
+  <polygon points="326,268 294,262 296,278 324,276" fill="#090d16" />
+  <!-- Right Iris / Neon Cyan Glow -->
+  <rect x="302" y="267" width="18" height="6" rx="2" fill="url(#eyeGlow)" />
+  <circle cx="308" cy="270" r="1.5" fill="#ffffff" />
+
+  <!-- Nose Bridge & Snout -->
+  <!-- Center Ridge -->
+  <polygon points="256,310 236,365 256,380 276,365" fill="#f1f5f9" />
+  <!-- Left Snout -->
+  <polygon points="220,295 226,345 236,365 256,310" fill="#e2e8f0" />
+  <!-- Right Snout -->
+  <polygon points="292,295 286,345 276,365 256,310" fill="#cbd5e1" />
+
+  <!-- Nostrils & Muzzle -->
+  <polygon points="236,365 228,390 256,405 284,390 276,365 256,380" fill="url(#muzzleGrad)" />
+  <!-- Left Nostril -->
+  <path d="M242 386 C240 390 244 394 248 392" stroke="#1e293b" stroke-width="3" stroke-linecap="round" fill="none" />
+  <!-- Right Nostril -->
+  <path d="M270 386 C272 390 268 394 264 392" stroke="#1e293b" stroke-width="3" stroke-linecap="round" fill="none" />
+
+  <!-- Majestic Goat Beard / Goatee (Sharp, tailored, tiered) -->
+  <!-- Upper Beard Tier -->
+  <polygon points="238,402 220,430 256,455 292,430 274,402 256,412" fill="url(#beardGrad)" />
+  <!-- Mid Beard Tier -->
+  <polygon points="232,430 240,465 256,482 272,465 280,430 256,445" fill="#f8fafc" />
+  <!-- Beard Tip Highlight -->
+  <polygon points="248,465 256,492 264,465" fill="#ffffff" />
+
+  <!-- Subtle Gold Star Emblem / Crypto Notch on Forehead -->
+  <path d="M256 226 L259 236 L269 236 L261 242 L264 252 L256 246 L248 252 L251 242 L243 236 L253 236 Z" fill="#fbbf24" stroke="#d97706" stroke-width="0.5" />
+</svg>`;
+
+async function main() {
+  const publicDir = path.resolve('public');
+  if (!fs.existsSync(publicDir)) {
+    fs.mkdirSync(publicDir, { recursive: true });
+  }
+
+  // 1. Save SVG Favicon
+  const svgPath = path.join(publicDir, 'favicon.svg');
+  fs.writeFileSync(svgPath, svgIcon.trim(), 'utf-8');
+  console.log('Saved SVG icon to', svgPath);
+
+  // 2. Generate Apple Touch Icon (180x180 px for iOS Home Screen)
+  const appleTouchPath = path.join(publicDir, 'apple-touch-icon.png');
+  await sharp(Buffer.from(svgIcon))
+    .resize(180, 180)
+    .png({ quality: 100 })
+    .toFile(appleTouchPath);
+  console.log('Generated apple-touch-icon.png (180x180)');
+
+  // 3. Apple Touch Icon Precomposed
+  const appleTouchPrecomposed = path.join(publicDir, 'apple-touch-icon-precomposed.png');
+  fs.copyFileSync(appleTouchPath, appleTouchPrecomposed);
+
+  // 4. Standard Favicon PNG (32x32)
+  const favicon32Path = path.join(publicDir, 'favicon-32x32.png');
+  await sharp(Buffer.from(svgIcon))
+    .resize(32, 32)
+    .png()
+    .toFile(favicon32Path);
+
+  // 5. Standard Favicon PNG (16x16)
+  const favicon16Path = path.join(publicDir, 'favicon-16x16.png');
+  await sharp(Buffer.from(svgIcon))
+    .resize(16, 16)
+    .png()
+    .toFile(favicon16Path);
+
+  // 6. PWA Icons: 192x192 & 512x512
+  const icon192Path = path.join(publicDir, 'icon-192.png');
+  await sharp(Buffer.from(svgIcon))
+    .resize(192, 192)
+    .png()
+    .toFile(icon192Path);
+
+  const icon512Path = path.join(publicDir, 'icon-512.png');
+  await sharp(Buffer.from(svgIcon))
+    .resize(512, 512)
+    .png()
+    .toFile(icon512Path);
+
+  // Update public/icon.png as well
+  const iconMain = path.join(publicDir, 'icon.png');
+  await sharp(Buffer.from(svgIcon))
+    .resize(512, 512)
+    .png()
+    .toFile(iconMain);
+
+  // 7. Web App Manifest for iOS / Android Home Screen
+  const manifest = {
+    name: "rwrfolio Krypto Portfolio",
+    short_name: "rwrfolio",
+    description: "Dein privater Krypto Portfolio Tracker mit DCA-Analyse & Live-Kursen",
+    start_url: "/",
+    display: "standalone",
+    background_color: "#0f172a",
+    theme_color: "#0f172a",
+    icons: [
+      {
+        src: "/favicon-32x32.png",
+        sizes: "32x32",
+        type: "image/png"
+      },
+      {
+        src: "/icon-192.png",
+        sizes: "192x192",
+        type: "image/png",
+        purpose: "any maskable"
+      },
+      {
+        src: "/icon-512.png",
+        sizes: "512x512",
+        type: "image/png",
+        purpose: "any maskable"
+      },
+      {
+        src: "/apple-touch-icon.png",
+        sizes: "180x180",
+        type: "image/png"
+      }
+    ]
+  };
+  fs.writeFileSync(path.join(publicDir, 'manifest.json'), JSON.stringify(manifest, null, 2), 'utf-8');
+  console.log('All icons and manifest.json successfully generated!');
+}
+
+main().catch(err => {
+  console.error('Failed to generate icons:', err);
+  process.exit(1);
+});

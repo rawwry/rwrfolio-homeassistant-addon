@@ -19,13 +19,19 @@ export function calculateAssetSummaries(
   const sorted = [...transactions].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
 
   for (const tx of sorted) {
-    const symbol = (tx.receivedCurrency || tx.spentCurrency || 'UNKNOWN').toUpperCase();
+    let symbol = (tx.receivedCurrency || tx.spentCurrency || 'UNKNOWN').toUpperCase();
+    if (symbol === 'MATIC' || symbol === 'POLYGON') {
+      symbol = 'POL';
+    }
+
     if (symbol === 'EUR' || symbol === 'USD' || symbol === 'UNKNOWN') {
       // If selling to EUR, handle the sold asset
       if (tx.type === 'SELL' && tx.spentCurrency && tx.spentCurrency !== 'EUR') {
-        const soldSym = tx.spentCurrency.toUpperCase();
+        let soldSym = tx.spentCurrency.toUpperCase();
+        if (soldSym === 'MATIC' || soldSym === 'POLYGON') {
+          soldSym = 'POL';
+        }
         if (!assetMap[soldSym]) {
-          const coinMeta = getCoinDetails(soldSym);
           assetMap[soldSym] = {
             symbol: soldSym,
             totalBought: 0,
@@ -62,7 +68,18 @@ export function calculateAssetSummaries(
 
     if (tx.type === 'BUY') {
       item.totalBought += tx.receivedAmount;
-      const spentEUR = tx.spentCurrency.toUpperCase() === 'EUR' ? tx.spentAmount : (tx.nativeCurrency === 'EUR' ? tx.nativeAmount || 0 : tx.spentAmount);
+      let spentEUR = 0;
+      if (tx.spentCurrency.toUpperCase() === 'EUR') {
+        spentEUR = tx.spentAmount;
+      } else if (tx.pricePerUnitEUR && tx.pricePerUnitEUR > 0 && tx.receivedAmount > 0) {
+        spentEUR = tx.pricePerUnitEUR * tx.receivedAmount;
+      } else if (tx.nativeCurrency?.toUpperCase() === 'EUR' && tx.nativeAmount) {
+        spentEUR = tx.nativeAmount;
+      } else if (tx.spentCurrency.toUpperCase() === 'USD') {
+        spentEUR = tx.spentAmount / 1.08;
+      } else {
+        spentEUR = tx.spentAmount;
+      }
       item.totalInvestedEUR += spentEUR;
     } else if (tx.type === 'REWARD' || tx.type === 'STAKE') {
       item.totalBought += tx.receivedAmount;

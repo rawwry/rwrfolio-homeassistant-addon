@@ -10,10 +10,12 @@ import {
   ArrowRight,
   RefreshCw,
   Layers,
-  Database
+  Database,
+  ShieldCheck
 } from 'lucide-react';
 import { Transaction, CSVParseResult, ExchangeSource } from '../types';
 import { parseCSVFile, USER_SAMPLE_CRYPTO_COM_CSV, parseGenericCSV, parseCSVLines } from '../utils/csvParser';
+import { deduplicateTransactions } from '../utils/transactionDedup';
 
 interface CSVImportModalProps {
   isOpen: boolean;
@@ -49,22 +51,17 @@ export const CSVImportModal: React.FC<CSVImportModalProps> = ({
     setCsvRawText(text);
     setFileName(name);
     
-    // Parse
+    // Parse CSV rows into transaction candidates
     const result = parseCSVFile(text);
     
-    // Check duplicates against existing transactions
-    const existingIds = new Set(existingTransactions.map(t => t.id));
-    let dupCount = 0;
-    const cleanList = result.transactions.map(t => {
-      if (existingIds.has(t.id)) {
-        dupCount++;
-      }
-      return t;
-    });
+    // Deduplicate against existing transactions and within batch
+    const dedup = deduplicateTransactions(result.transactions, existingTransactions);
 
     setParseResult({
       ...result,
-      skippedDuplicates: dupCount,
+      transactions: dedup.newTransactions,
+      importedCount: dedup.newTransactions.length,
+      skippedDuplicates: dedup.skippedDuplicates.length,
     });
 
     const parsedLines = parseCSVLines(text);
@@ -118,12 +115,14 @@ export const CSVImportModal: React.FC<CSVImportModalProps> = ({
       exchangeSource: customSource,
     });
 
+    const dedup = deduplicateTransactions(txs, existingTransactions);
+
     setParseResult({
-      success: txs.length > 0,
-      transactions: txs,
+      success: dedup.newTransactions.length > 0 || dedup.skippedDuplicates.length > 0,
+      transactions: dedup.newTransactions,
       totalRows: rawRows.length - 1,
-      importedCount: txs.length,
-      skippedDuplicates: 0,
+      importedCount: dedup.newTransactions.length,
+      skippedDuplicates: dedup.skippedDuplicates.length,
       detectedExchange: customSource as ExchangeSource,
       errors: txs.length === 0 ? ['Konnte keine Transaktionen mit diesen Spaltenzuordnungen generieren.'] : [],
     });
@@ -345,15 +344,34 @@ export const CSVImportModal: React.FC<CSVImportModalProps> = ({
           {/* Parse Result Preview */}
           {parseResult && (
             <div className="space-y-3 pt-2">
+              
+              {/* Duplicates Notification Banner */}
+              {parseResult.skippedDuplicates > 0 && (
+                <div className="p-3 bg-amber-500/10 border border-amber-500/25 rounded-xl text-xs flex items-start gap-2.5 text-amber-300">
+                  <ShieldCheck className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                  <div className="space-y-0.5">
+                    <div className="font-semibold text-amber-200">
+                      Duplikatsprüfung: {parseResult.skippedDuplicates} bereits vorhandene Transaktion(en) erkannt
+                    </div>
+                    <p className="text-[11px] text-amber-300/80 leading-relaxed">
+                      Gleiche Käufe oder Verkäufe wurden automatisch herausgefiltert. 
+                      {parseResult.transactions.length > 0 
+                        ? ` Es werden nur die ${parseResult.transactions.length} neuen Einträge übernommen.`
+                        : ' Alle Einträge dieser Liste existieren bereits im Portfolio – keine doppelten Daten.'}
+                    </p>
+                  </div>
+                </div>
+              )}
+
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2 text-xs">
                   <CheckCircle2 className="w-4 h-4 text-emerald-400" />
                   <span className="font-semibold text-white">
-                    {parseResult.transactions.length} Transaktionen erkannt
+                    {parseResult.transactions.length} neue Transaktionen zum Import
                   </span>
                   {parseResult.skippedDuplicates > 0 && (
-                    <span className="text-amber-400">
-                      ({parseResult.skippedDuplicates} bereits im System)
+                    <span className="text-amber-400 text-[11px]">
+                      ({parseResult.skippedDuplicates} Duplikate übersprungen)
                     </span>
                   )}
                 </div>
@@ -363,32 +381,44 @@ export const CSVImportModal: React.FC<CSVImportModalProps> = ({
               </div>
 
               {/* Preview List Table */}
-              <div className="border border-slate-800 rounded-xl overflow-hidden max-h-48 overflow-y-auto">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-slate-950 text-slate-400 border-b border-slate-800 sticky top-0">
-                    <tr>
-                      <th className="p-2">Datum</th>
-                      <th className="p-2">Typ</th>
-                      <th className="p-2">Erhalten</th>
-                      <th className="p-2 text-right">Bezahlt</th>
-                      <th className="p-2 text-right">Kurs Ø</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-800/60 font-mono">
-                    {parseResult.transactions.map((tx, idx) => (
-                      <tr key={idx} className="hover:bg-slate-800/30">
-                        <td className="p-2 text-slate-300">{tx.timestamp.substring(0, 16).replace('T', ' ')}</td>
-                        <td className="p-2 text-emerald-400">{tx.type}</td>
-                        <td className="p-2 font-bold text-white">{tx.receivedAmount} {tx.receivedCurrency}</td>
-                        <td className="p-2 text-right text-slate-200">{tx.spentAmount} {tx.spentCurrency}</td>
-                        <td className="p-2 text-right text-indigo-300">
-                          {tx.pricePerUnitEUR ? `${tx.pricePerUnitEUR.toFixed(4)} €` : '-'}
-                        </td>
+              {parseResult.transactions.length > 0 ? (
+                <div className="border border-slate-800 rounded-xl overflow-hidden max-h-48 overflow-y-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-slate-950 text-slate-400 border-b border-slate-800 sticky top-0">
+                      <tr>
+                        <th className="p-2">Datum</th>
+                        <th className="p-2">Typ</th>
+                        <th className="p-2">Erhalten</th>
+                        <th className="p-2 text-right">Bezahlt</th>
+                        <th className="p-2 text-right">Kurs Ø</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody className="divide-y divide-slate-800/60 font-mono">
+                      {parseResult.transactions.map((tx, idx) => (
+                        <tr key={idx} className="hover:bg-slate-800/30">
+                          <td className="p-2 text-slate-300">{tx.timestamp.substring(0, 16).replace('T', ' ')}</td>
+                          <td className="p-2 text-emerald-400">{tx.type}</td>
+                          <td className="p-2 font-bold text-white">{tx.receivedAmount} {tx.receivedCurrency}</td>
+                          <td className="p-2 text-right text-slate-200">{tx.spentAmount} {tx.spentCurrency}</td>
+                          <td className="p-2 text-right text-indigo-300">
+                            {tx.pricePerUnitEUR ? `${tx.pricePerUnitEUR.toFixed(4)} €` : '-'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="p-6 rounded-xl border border-dashed border-slate-800 text-center space-y-1 bg-slate-950/40">
+                  <CheckCircle2 className="w-6 h-6 text-emerald-400 mx-auto" />
+                  <div className="text-xs font-semibold text-slate-300">
+                    Dein Portfolio ist bereits aktuell!
+                  </div>
+                  <p className="text-[11px] text-slate-500">
+                    Alle Einträge in dieser CSV-Datei wurden bereits zu einem früheren Zeitpunkt importiert.
+                  </p>
+                </div>
+              )}
             </div>
           )}
 
@@ -399,21 +429,23 @@ export const CSVImportModal: React.FC<CSVImportModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+            className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
           >
-            Abbrechen
+            Schließen
           </button>
           
           <button
             type="button"
             disabled={!parseResult || parseResult.transactions.length === 0}
             onClick={handleConfirmImport}
-            className="inline-flex items-center space-x-1.5 px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold text-white bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 disabled:opacity-40 disabled:cursor-not-allowed shadow-md shadow-emerald-600/20 transition-all"
+            className="inline-flex items-center space-x-1.5 px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold text-white bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 disabled:opacity-40 disabled:cursor-not-allowed shadow-md shadow-emerald-600/20 transition-all cursor-pointer"
           >
             <CheckCircle2 className="w-4 h-4" />
             <span>
               {parseResult && parseResult.transactions.length > 0
-                ? `${parseResult.transactions.length} Transaktionen importieren`
+                ? `${parseResult.transactions.length} neue Transaktionen importieren`
+                : parseResult && parseResult.skippedDuplicates > 0
+                ? 'Bereits importiert (0 neu)'
                 : 'Importieren'}
             </span>
           </button>

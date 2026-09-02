@@ -21,8 +21,9 @@ export const KNOWN_COINS: Record<string, CoinInfo> = {
   AVAX: { id: 'avalanche-2', name: 'Avalanche', symbol: 'AVAX', defaultPriceEUR: 27.50, color: '#e84142' },
   LINK: { id: 'chainlink', name: 'Chainlink', symbol: 'LINK', defaultPriceEUR: 12.80, color: '#375bd2' },
   NEAR: { id: 'near', name: 'NEAR Protocol', symbol: 'NEAR', defaultPriceEUR: 4.60, color: '#000000' },
-  MATIC: { id: 'polygon-ecosystem-token', name: 'Polygon', symbol: 'MATIC', defaultPriceEUR: 0.08, color: '#8247e5' },
+  MATIC: { id: 'polygon-ecosystem-token', name: 'Polygon', symbol: 'POL', defaultPriceEUR: 0.08, color: '#8247e5' },
   POL: { id: 'polygon-ecosystem-token', name: 'Polygon Ecosystem Token', symbol: 'POL', defaultPriceEUR: 0.08, color: '#8247e5' },
+  POLYGON: { id: 'polygon-ecosystem-token', name: 'Polygon', symbol: 'POL', defaultPriceEUR: 0.08, color: '#8247e5' },
   BNB: { id: 'binancecoin', name: 'BNB', symbol: 'BNB', defaultPriceEUR: 540, color: '#f3ba2f' },
   SUI: { id: 'sui', name: 'Sui', symbol: 'SUI', defaultPriceEUR: 1.80, color: '#4da2ff' },
   KAS: { id: 'kaspa', name: 'Kaspa', symbol: 'KAS', defaultPriceEUR: 0.16, color: '#70c7ba' },
@@ -45,12 +46,15 @@ export function getStoredCustomPrices(): Record<string, number> {
     const data = localStorage.getItem(STORAGE_PRICE_KEY);
     if (!data) return {};
     const parsed = JSON.parse(data);
-    // Sanitize old erroneous MATIC/POL price from previous CoinGecko matic-network bug (~0.1089)
-    if (parsed.POL && parsed.POL > 0.10 && parsed.POL < 0.12) {
+    // Sanitize old erroneous MATIC/POL prices (old Binance frozen MATIC contract ~0.34-0.38, or old CoinGecko bug ~0.1089)
+    if (parsed.POL && (parsed.POL > 0.15 || (parsed.POL > 0.10 && parsed.POL < 0.12))) {
       delete parsed.POL;
     }
-    if (parsed.MATIC && parsed.MATIC > 0.10 && parsed.MATIC < 0.12) {
+    if (parsed.MATIC && (parsed.MATIC > 0.15 || (parsed.MATIC > 0.10 && parsed.MATIC < 0.12))) {
       delete parsed.MATIC;
+    }
+    if (parsed.POLYGON && (parsed.POLYGON > 0.15 || (parsed.POLYGON > 0.10 && parsed.POLYGON < 0.12))) {
+      delete parsed.POLYGON;
     }
     return parsed;
   } catch (e) {
@@ -137,6 +141,16 @@ export async function fetchLivePrices(symbols: string[]): Promise<Record<string,
       }
       const eurUsdt = tickerMap.get('EURUSDT') || 1.16;
 
+      // Pre-extract active live Polygon (POL) price
+      // Note: Binance migrated MATIC to POL on Sept 2024.
+      // 'MATICEUR' and 'MATICUSDT' are frozen old contracts (~0.34-0.38) and MUST NEVER be used!
+      let livePolPriceEUR: number | null = null;
+      if (tickerMap.has('POLEUR')) {
+        livePolPriceEUR = tickerMap.get('POLEUR')!;
+      } else if (tickerMap.has('POLUSDT')) {
+        livePolPriceEUR = tickerMap.get('POLUSDT')! / eurUsdt;
+      }
+
       for (const sym of uniqueSymbols) {
         if (sym === 'USDT') {
           const price = 1 / eurUsdt;
@@ -146,6 +160,12 @@ export async function fetchLivePrices(symbols: string[]): Promise<Record<string,
           const price = (tickerMap.get('USDCUSDT') || 1) / eurUsdt;
           results[sym] = price;
           saveStoredCustomPrice(sym, price);
+        } else if (sym === 'POL' || sym === 'MATIC' || sym === 'POLYGON') {
+          // Explicitly assign live POL price to Polygon tokens
+          if (livePolPriceEUR !== null && livePolPriceEUR > 0) {
+            results[sym] = livePolPriceEUR;
+            saveStoredCustomPrice(sym, livePolPriceEUR);
+          }
         } else if (tickerMap.has(`${sym}EUR`)) {
           const price = tickerMap.get(`${sym}EUR`)!;
           results[sym] = price;
@@ -157,13 +177,15 @@ export async function fetchLivePrices(symbols: string[]): Promise<Record<string,
         }
       }
 
-      // Handle POL / MATIC equivalence on Binance if only one is returned
-      if (results.POL && !results.MATIC) {
-        results.MATIC = results.POL;
-        saveStoredCustomPrice('MATIC', results.POL);
-      } else if (results.MATIC && !results.POL) {
-        results.POL = results.MATIC;
-        saveStoredCustomPrice('POL', results.MATIC);
+      // Synchronize all Polygon aliases so POL, MATIC, POLYGON always match the exact active market price
+      const effectivePolygonPrice = livePolPriceEUR || results.POL || results.MATIC || results.POLYGON;
+      if (effectivePolygonPrice && effectivePolygonPrice > 0) {
+        results.POL = effectivePolygonPrice;
+        results.MATIC = effectivePolygonPrice;
+        results.POLYGON = effectivePolygonPrice;
+        saveStoredCustomPrice('POL', effectivePolygonPrice);
+        saveStoredCustomPrice('MATIC', effectivePolygonPrice);
+        saveStoredCustomPrice('POLYGON', effectivePolygonPrice);
       }
     }
   } catch (err) {

@@ -78,21 +78,24 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     }
 
     let finalPasswordHash = settings.user?.passwordHash;
-    let hasPassword = settings.user?.hasPassword ?? false;
+    let hasPassword = true;
 
     if (password) {
       finalPasswordHash = await hashPassword(password);
-      hasPassword = true;
     }
+
+    const cleanUsername = username.trim() || 'admin';
+    const isNowCustomized = cleanUsername.toLowerCase() !== 'admin' || Boolean(password);
 
     const updatedSettings: AppSettings = {
       theme,
       privacyMode,
       user: {
-        username: username.trim() || 'Krypto-Investor',
+        username: cleanUsername,
         email: email.trim(),
-        hasPassword,
+        hasPassword: true,
         passwordHash: finalPasswordHash,
+        isInitialAdmin: isNowCustomized ? false : settings.user?.isInitialAdmin ?? false,
         updatedAt: new Date().toISOString(),
       },
       email: {
@@ -116,24 +119,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       setSavedFeedback(false);
       onClose();
     }, 800);
-  };
-
-  const handleRemovePassword = () => {
-    if (window.confirm('Möchtest du den Passwortschutz wirklich deaktivieren? Die App wird beim Starten nicht mehr nach einem Passwort fragen.')) {
-      const updatedSettings: AppSettings = {
-        ...settings,
-        user: {
-          ...settings.user,
-          hasPassword: false,
-          passwordHash: '',
-          updatedAt: new Date().toISOString(),
-        }
-      };
-      onSaveSettings(updatedSettings);
-      setPassword('');
-      setConfirmPassword('');
-      alert('Passwortschutz wurde deaktiviert.');
-    }
   };
 
   const handleSendTestEmail = async () => {
@@ -249,20 +234,38 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 <div>
                   <h3 className="text-sm font-bold flex items-center gap-2">
                     <User className="w-4 h-4 text-indigo-400" />
-                    Benutzerprofil
+                    Benutzerverwaltung &amp; Kontosicherheit
                   </h3>
                   <p className={`text-xs mt-1 ${theme === 'light' ? 'text-slate-500' : 'text-slate-400'}`}>
-                    Wird sicher in deiner lokalen SQLite-Datenbank auf dem Raspberry Pi gespeichert.
+                    Dein Benutzerkonto wird sicher in deiner lokalen SQLite-Datenbank auf dem Raspberry Pi verwaltet.
                   </p>
                 </div>
 
+                {/* Default Admin warning badge */}
+                {((settings.user?.isInitialAdmin ?? true) || settings.user?.username === 'admin') && (
+                  <div className={`p-3.5 rounded-2xl border text-xs flex items-start gap-3 ${
+                    theme === 'light' 
+                      ? 'bg-amber-50 border-amber-200 text-amber-900' 
+                      : 'bg-amber-950/20 border-amber-800/50 text-amber-200'
+                  }`}>
+                    <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                    <div className="space-y-1">
+                      <div className="font-bold">Standard-Administrator aktiv ("admin" / "admin")</div>
+                      <p className="text-[11px] opacity-90 leading-relaxed">
+                        Bitte ändere hier deinen gewünschten Benutzernamen, deine E-Mail-Adresse und vergib ein individuelles Passwort, um den Zugriff abzusichern.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
                 <div className="space-y-4">
                   <div>
-                    <label className={`block text-xs font-medium mb-1.5 ${theme === 'light' ? 'text-slate-700' : 'text-slate-300'}`}>
-                      Benutzername
+                    <label className={`block text-xs font-semibold mb-1.5 ${theme === 'light' ? 'text-slate-700' : 'text-slate-300'}`}>
+                      Benutzername <span className="text-rose-500">*</span>
                     </label>
                     <input
                       type="text"
+                      required
                       value={username}
                       onChange={(e) => setUsername(e.target.value)}
                       placeholder="z. B. Timo oder Investor1"
@@ -272,10 +275,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                           : 'bg-slate-950 border-slate-800 text-white'
                       }`}
                     />
+                    <p className={`text-[11px] mt-1 ${theme === 'light' ? 'text-slate-500' : 'text-slate-400'}`}>
+                      Wird beim Login abgefragt.
+                    </p>
                   </div>
 
                   <div>
-                    <label className={`block text-xs font-medium mb-1.5 ${theme === 'light' ? 'text-slate-700' : 'text-slate-300'}`}>
+                    <label className={`block text-xs font-semibold mb-1.5 ${theme === 'light' ? 'text-slate-700' : 'text-slate-300'}`}>
                       E-Mail-Adresse
                     </label>
                     <input
@@ -289,6 +295,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                           : 'bg-slate-950 border-slate-800 text-white'
                       }`}
                     />
+                    <p className={`text-[11px] mt-1 ${theme === 'light' ? 'text-slate-500' : 'text-slate-400'}`}>
+                      Kann alternativ zum Benutzernamen beim Login verwendet werden und empfängt Benachrichtigungen.
+                    </p>
                   </div>
 
                   <div className={`pt-4 border-t ${theme === 'light' ? 'border-slate-200' : 'border-slate-800/80'} space-y-4`}>
@@ -296,17 +305,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       <div>
                         <div className="text-xs font-bold flex items-center gap-1.5">
                           <Lock className="w-3.5 h-3.5 text-indigo-400" />
-                          <span>Passwortschutz (Optional)</span>
+                          <span>Passwort ändern</span>
                         </div>
                         <p className={`text-[11px] ${theme === 'light' ? 'text-slate-500' : 'text-slate-400'}`}>
-                          Schützt die Benutzeroberfläche vor unbefugtem Zugriff im Heimnetzwerk.
+                          Leer lassen, um das bestehende Passwort beizubehalten.
                         </p>
                       </div>
-                      {settings.user?.hasPassword && (
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                          Aktiv
-                        </span>
-                      )}
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                        Geschützt
+                      </span>
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -319,7 +326,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                             type={showPassword ? 'text' : 'password'}
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
-                            placeholder="••••••••"
+                            placeholder="Neues Passwort..."
                             className={`w-full px-3 py-2 pr-9 rounded-xl text-sm border focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
                               theme === 'light'
                                 ? 'bg-white border-slate-300 text-slate-900'
@@ -344,7 +351,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                           type={showPassword ? 'text' : 'password'}
                           value={confirmPassword}
                           onChange={(e) => setConfirmPassword(e.target.value)}
-                          placeholder="••••••••"
+                          placeholder="Passwort wiederholen..."
                           className={`w-full px-3 py-2 rounded-xl text-sm border focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
                             theme === 'light'
                               ? 'bg-white border-slate-300 text-slate-900'
@@ -354,29 +361,18 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       </div>
                     </div>
 
-                    {/* Remove password option if currently enabled */}
-                    {settings.user?.hasPassword && (
-                      <div className="flex items-center justify-between pt-2">
+                    {onLogout && (
+                      <div className="flex items-center justify-end pt-2">
                         <button
                           type="button"
-                          onClick={handleRemovePassword}
-                          className="text-xs text-rose-500 hover:text-rose-400 font-medium hover:underline cursor-pointer"
+                          onClick={() => {
+                            onClose();
+                            onLogout();
+                          }}
+                          className="text-xs px-3 py-1.5 rounded-lg border border-slate-700 hover:bg-slate-800 text-slate-300 hover:text-white transition-colors cursor-pointer"
                         >
-                          Passwortschutz entfernen
+                          Jetzt abmelden
                         </button>
-
-                        {onLogout && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              onClose();
-                              onLogout();
-                            }}
-                            className="text-xs px-2.5 py-1 rounded-lg border border-slate-700 hover:bg-slate-800 text-slate-300 hover:text-white transition-colors cursor-pointer"
-                          >
-                            Jetzt abmelden
-                          </button>
-                        )}
                       </div>
                     )}
                   </div>

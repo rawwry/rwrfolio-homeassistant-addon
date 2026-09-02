@@ -136,6 +136,36 @@ export async function initDb(): Promise<void> {
     );
   `);
 
+  // Ensure default settings with initial admin user exist in SQLite if not yet configured
+  const existingSettings = await getSettingValue('app_settings', '');
+  if (!existingSettings) {
+    const defaultSettings = {
+      theme: 'dark',
+      privacyMode: false,
+      user: {
+        username: 'admin',
+        email: 'admin@rwrfolio.local',
+        hasPassword: true,
+        passwordHash: '22f753c842c7c1ca3ae9a6153b1a6386c8897bdd7ab00e6a8390ebcefa314cb2',
+        isInitialAdmin: true,
+      },
+      email: {
+        enabled: false,
+        smtpHost: '',
+        smtpPort: 587,
+        smtpUser: '',
+        smtpPass: '',
+        senderEmail: '',
+        recipientEmail: '',
+        dailyDigest: false,
+        priceAlertThresholdPct: 10,
+        alertOnLargeDip: true,
+        alertOnTargetReached: true,
+      }
+    };
+    await setSettingValue('app_settings', JSON.stringify(defaultSettings));
+  }
+
   // Initial database schema ready. Start with clean, empty transactions table (0 entries).
 }
 

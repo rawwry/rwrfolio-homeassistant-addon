@@ -30,7 +30,8 @@ import { TaxView } from './components/TaxView';
 import { LoginScreen } from './components/LoginScreen';
 import { APP_VERSION } from './changelog';
 import { PixelGoatIcon } from './components/PixelGoatIcon';
-import { isSessionAuthenticated, clearSessionAuth } from './utils/auth';
+import { isSessionAuthenticated, clearSessionAuth, DEFAULT_ADMIN_HASH } from './utils/auth';
+import { deduplicateTransactions } from './utils/transactionDedup';
 import { 
   Download, 
   RotateCcw, 
@@ -55,9 +56,11 @@ const DEFAULT_SETTINGS: AppSettings = {
   theme: 'dark',
   privacyMode: false,
   user: {
-    username: 'Investor',
-    email: '',
-    hasPassword: false,
+    username: 'admin',
+    email: 'admin@rwrfolio.local',
+    hasPassword: true,
+    passwordHash: DEFAULT_ADMIN_HASH,
+    isInitialAdmin: true,
   },
   email: {
     enabled: false,
@@ -147,12 +150,15 @@ export default function App() {
         const serverPrices = await fetchPricesFromApi();
         if (serverPrices && Object.keys(serverPrices).length > 0) {
           const cleanedPrices = { ...serverPrices };
-          // Sanitize old Polygon matic-network bug price (~0.1089)
-          if (cleanedPrices.POL && cleanedPrices.POL > 0.10 && cleanedPrices.POL < 0.12) {
+          // Sanitize old Polygon prices (frozen Binance contract ~0.34 or old CoinGecko matic-network bug ~0.1089)
+          if (cleanedPrices.POL && (cleanedPrices.POL > 0.15 || (cleanedPrices.POL > 0.10 && cleanedPrices.POL < 0.12))) {
             delete cleanedPrices.POL;
           }
-          if (cleanedPrices.MATIC && cleanedPrices.MATIC > 0.10 && cleanedPrices.MATIC < 0.12) {
+          if (cleanedPrices.MATIC && (cleanedPrices.MATIC > 0.15 || (cleanedPrices.MATIC > 0.10 && cleanedPrices.MATIC < 0.12))) {
             delete cleanedPrices.MATIC;
+          }
+          if (cleanedPrices.POLYGON && (cleanedPrices.POLYGON > 0.15 || (cleanedPrices.POLYGON > 0.10 && cleanedPrices.POLYGON < 0.12))) {
+            delete cleanedPrices.POLYGON;
           }
           setCustomPrices(prev => ({ ...prev, ...cleanedPrices }));
         }
@@ -289,18 +295,24 @@ export default function App() {
   };
 
   const handleImportTransactions = async (newTxs: Transaction[], csvRawText?: string, fileName?: string) => {
-    const existingIds = new Set(transactions.map(t => t.id));
-    const filtered = newTxs.filter(t => !existingIds.has(t.id));
+    // Check duplicates against all current transactions
+    const dedup = deduplicateTransactions(newTxs, transactions);
     
-    setTransactions(prev => [...filtered, ...prev]);
+    if (dedup.newTransactions.length === 0) {
+      showToast(`Alle ${dedup.skippedDuplicates.length} Transaktionen existieren bereits (keine Duplikate importiert)`, 'info');
+      return;
+    }
+
+    setTransactions(prev => [...dedup.newTransactions, ...prev]);
     
-    const importRes = await bulkImportTransactionsToApi(filtered, csvRawText, fileName);
+    const importRes = await bulkImportTransactionsToApi(dedup.newTransactions, csvRawText, fileName);
     setDbConnected(true);
 
+    const dupNote = dedup.skippedDuplicates.length > 0 ? ` (${dedup.skippedDuplicates.length} Duplikate übersprungen)` : '';
     if (importRes.archivedPath) {
-      showToast(`${filtered.length} Transaktionen importiert & CSV in Samba /share archiviert`, 'success');
+      showToast(`${dedup.newTransactions.length} Transaktionen importiert${dupNote} & CSV in Samba /share archiviert`, 'success');
     } else {
-      showToast(`${filtered.length} Transaktionen dauerhaft in SQLite gespeichert`, 'success');
+      showToast(`${dedup.newTransactions.length} Transaktionen dauerhaft in SQLite gespeichert${dupNote}`, 'success');
     }
   };
 
@@ -354,19 +366,6 @@ export default function App() {
     showToast('Erfolgreich angemeldet', 'success');
   };
 
-  const handleSetNewPassword = async (newHash: string) => {
-    const updatedSettings: AppSettings = {
-      ...settings,
-      user: {
-        ...settings.user,
-        hasPassword: true,
-        passwordHash: newHash,
-        updatedAt: new Date().toISOString(),
-      }
-    };
-    await handleSaveSettings(updatedSettings);
-  };
-
   const handleLogout = () => {
     clearSessionAuth();
     setIsAuthenticated(false);
@@ -396,7 +395,6 @@ export default function App() {
       <LoginScreen
         userProfile={settings.user}
         onLoginSuccess={handleLoginSuccess}
-        onSetNewPassword={handleSetNewPassword}
         theme={settings.theme}
         onToggleTheme={handleToggleTheme}
       />
@@ -442,6 +440,34 @@ export default function App() {
       {/* Main Container */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
         
+        {/* Default Admin Notice Banner */}
+        {((settings.user?.isInitialAdmin ?? true) || settings.user?.username === 'admin') && (
+          <div className={`p-4 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs shadow-sm ${
+            isLight 
+              ? 'bg-amber-50/90 border-amber-200 text-amber-900' 
+              : 'bg-amber-950/20 border-amber-800/40 text-amber-200'
+          }`}>
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-xl bg-amber-500/20 flex items-center justify-center text-amber-400 shrink-0">
+                <ShieldCheck className="w-4 h-4" />
+              </div>
+              <div>
+                <div className="font-bold text-sm">Standard-Administrator aktiv ("admin" / "admin")</div>
+                <p className="opacity-80 text-[11px] mt-0.5">
+                  Passe deinen Benutzernamen, deine E-Mail und dein Passwort in den Einstellungen an, um die Seite individuell abzusichern.
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsSettingsOpen(true)}
+              className="px-3.5 py-1.5 rounded-xl font-semibold bg-amber-500 text-slate-950 hover:bg-amber-400 transition-colors shrink-0 text-center cursor-pointer shadow-sm"
+            >
+              Zugangsdaten ändern
+            </button>
+          </div>
+        )}
+
         {/* Top KPIs Summary Cards */}
         <PortfolioStats totals={totals} assets={assets} />
 
