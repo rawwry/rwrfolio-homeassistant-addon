@@ -554,6 +554,7 @@ export default function App() {
             {/* Asset DCA & Holdings Table with Profit/Loss calculation */}
             <AssetList
               assets={assets}
+              currency={settings.currency || 'EUR'}
               onSelectAssetForFilter={handleSelectAssetForFilter}
               onEditPrice={(symbol, currentPrice) => setPriceEditTarget({ symbol, price: currentPrice })}
             />
@@ -646,6 +647,7 @@ export default function App() {
           <div className="space-y-4">
             <AssetList
               assets={assets}
+              currency={settings.currency || 'EUR'}
               onSelectAssetForFilter={handleSelectAssetForFilter}
               onEditPrice={(symbol, currentPrice) => setPriceEditTarget({ symbol, price: currentPrice })}
             />
@@ -658,6 +660,7 @@ export default function App() {
             assets={assets}
             transactions={transactions}
             theme={settings.theme}
+            currency={settings.currency || 'EUR'}
           />
         )}
 

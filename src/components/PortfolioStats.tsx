@@ -8,24 +8,46 @@ import {
   CircleDollarSign,
   PieChart as PieIcon
 } from 'lucide-react';
-import { PortfolioTotals, AssetSummary } from '../types';
+import { PortfolioTotals, AssetSummary, PortfolioCurrency } from '../types';
 
 interface PortfolioStatsProps {
   totals: PortfolioTotals;
   assets: AssetSummary[];
+  currency?: PortfolioCurrency;
 }
 
-export const PortfolioStats: React.FC<PortfolioStatsProps> = ({ totals, assets }) => {
-  const isPositive = totals.totalPnlEUR >= 0;
+export const PortfolioStats: React.FC<PortfolioStatsProps> = ({ totals, assets, currency = 'EUR' }) => {
+  const activeCurrency = totals.currency || currency;
+  const isUSD = activeCurrency === 'USD';
+  
+  const totalPnl = totals.totalPnl !== undefined ? totals.totalPnl : totals.totalPnlEUR;
+  const isPositive = totalPnl >= 0;
 
-  const formatEUR = (val: number) => {
-    return new Intl.NumberFormat('de-DE', {
+  const formatActive = (val: number) => {
+    return new Intl.NumberFormat(isUSD ? 'en-US' : 'de-DE', {
       style: 'currency',
-      currency: 'EUR',
+      currency: isUSD ? 'USD' : 'EUR',
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     }).format(val);
   };
+
+  const formatAlt = (val: number) => {
+    return new Intl.NumberFormat(isUSD ? 'de-DE' : 'en-US', {
+      style: 'currency',
+      currency: isUSD ? 'EUR' : 'USD',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(val);
+  };
+
+  const activeValue = totals.currentValue !== undefined ? totals.currentValue : totals.currentValueEUR;
+  const altValue = isUSD ? totals.currentValueEUR : (totals.currentValueEUR * (totals.eurUsdRate || 1.1591));
+
+  const activeInvested = totals.totalInvested !== undefined ? totals.totalInvested : totals.totalInvestedEUR;
+  const altInvested = isUSD ? totals.totalInvestedEUR : (totals.totalInvestedEUR * (totals.eurUsdRate || 1.1591));
+
+  const altPnl = isUSD ? totals.totalPnlEUR : (totals.totalPnlEUR * (totals.eurUsdRate || 1.1591));
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -41,10 +63,12 @@ export const PortfolioStats: React.FC<PortfolioStatsProps> = ({ totals, assets }
           </div>
         </div>
         <div className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
-          {formatEUR(totals.currentValueEUR)}
+          {formatActive(activeValue)}
         </div>
         <div className="mt-2 flex items-center text-xs text-slate-400 space-x-1.5">
-          <span>Auf Basis aktueller Marktpreise</span>
+          <span className="text-slate-300 font-medium">≈ {formatAlt(altValue)}</span>
+          <span className="text-slate-500">•</span>
+          <span>Live-Kurse</span>
         </div>
       </div>
 
@@ -60,10 +84,12 @@ export const PortfolioStats: React.FC<PortfolioStatsProps> = ({ totals, assets }
           </div>
         </div>
         <div className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
-          {formatEUR(totals.totalInvestedEUR)}
+          {formatActive(activeInvested)}
         </div>
         <div className="mt-2 flex items-center text-xs text-slate-400 space-x-1.5">
-          <span>{totals.transactionCount} erfasste Transaktionen</span>
+          <span className="text-slate-300 font-medium">≈ {formatAlt(altInvested)}</span>
+          <span className="text-slate-500">•</span>
+          <span>{totals.transactionCount} Transaktionen</span>
         </div>
       </div>
 
@@ -72,7 +98,7 @@ export const PortfolioStats: React.FC<PortfolioStatsProps> = ({ totals, assets }
         <div className={`absolute top-0 right-0 w-32 h-32 ${isPositive ? 'bg-emerald-500/5 group-hover:bg-emerald-500/10' : 'bg-rose-500/5 group-hover:bg-rose-500/10'} rounded-full blur-2xl transition-all`} />
         <div className="flex items-center justify-between mb-3">
           <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-            Gewinn / Verlust (P&L)
+            Nicht realisierter Gewinn (P&L)
           </span>
           <div className={`w-8 h-8 rounded-lg ${isPositive ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-rose-500/10 border-rose-500/20 text-rose-400'} border flex items-center justify-center`}>
             {isPositive ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
@@ -80,16 +106,18 @@ export const PortfolioStats: React.FC<PortfolioStatsProps> = ({ totals, assets }
         </div>
         <div className="flex items-baseline space-x-2">
           <div className={`text-2xl sm:text-3xl font-extrabold tracking-tight ${isPositive ? 'text-emerald-400' : 'text-rose-400'}`}>
-            {isPositive ? '+' : ''}{formatEUR(totals.totalPnlEUR)}
+            {isPositive ? '+' : ''}{formatActive(totalPnl)}
           </div>
         </div>
-        <div className="mt-2 flex items-center">
+        <div className="mt-2 flex items-center space-x-2">
           <span className={`inline-flex items-center text-xs font-semibold px-2 py-0.5 rounded-full ${
             isPositive ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/20' : 'bg-rose-500/15 text-rose-400 border border-rose-500/20'
           }`}>
             {isPositive ? '+' : ''}{totals.totalPnlPercentage.toFixed(2)}%
           </span>
-          <span className="text-xs text-slate-400 ml-2">Gesamtrendite</span>
+          <span className="text-xs text-slate-400">
+            ≈ {isPositive ? '+' : ''}{formatAlt(altPnl)}
+          </span>
         </div>
       </div>
 

@@ -1,5 +1,5 @@
 import React from 'react';
-import { AssetSummary } from '../types';
+import { AssetSummary, PortfolioCurrency } from '../types';
 import { 
   Edit3, 
   Filter, 
@@ -11,15 +11,37 @@ import { getCoinDetails } from '../utils/priceService';
 
 interface AssetListProps {
   assets: AssetSummary[];
+  currency?: PortfolioCurrency;
   onSelectAssetForFilter?: (symbol: string) => void;
   onEditPrice?: (symbol: string, currentPrice: number) => void;
 }
 
 export const AssetList: React.FC<AssetListProps> = ({
   assets,
+  currency = 'EUR',
   onSelectAssetForFilter,
   onEditPrice,
 }) => {
+  const isUSD = currency === 'USD';
+
+  const formatActive = (val: number, decimals: number = 2) => {
+    return new Intl.NumberFormat(isUSD ? 'en-US' : 'de-DE', {
+      style: 'currency',
+      currency: isUSD ? 'USD' : 'EUR',
+      minimumFractionDigits: decimals,
+      maximumFractionDigits: decimals,
+    }).format(val);
+  };
+
+  const formatAlt = (val: number, decimals: number = 2) => {
+    return new Intl.NumberFormat(isUSD ? 'de-DE' : 'en-US', {
+      style: 'currency',
+      currency: isUSD ? 'EUR' : 'USD',
+      minimumFractionDigits: decimals,
+      maximumFractionDigits: decimals,
+    }).format(val);
+  };
+
   const formatEUR = (val: number, decimals: number = 2) => {
     return new Intl.NumberFormat('de-DE', {
       style: 'currency',
@@ -84,9 +106,26 @@ export const AssetList: React.FC<AssetListProps> = ({
           <tbody className="divide-y divide-slate-800/60">
             {assets.map((asset) => {
               const details = getCoinDetails(asset.symbol);
-              const isProfit = asset.pnlEUR >= 0;
-              const priceDecimals = asset.currentPriceEUR < 1 ? 4 : (asset.currentPriceEUR < 10 ? 3 : 2);
-              const avgBuyDecimals = asset.averageBuyPriceEUR < 1 ? 4 : (asset.averageBuyPriceEUR < 10 ? 3 : 2);
+
+              const activeAvgBuy = isUSD ? (asset.averageBuyPriceUSD || asset.averageBuyPrice) : (asset.averageBuyPriceEUR || asset.averageBuyPrice);
+              const altAvgBuy = isUSD ? asset.averageBuyPriceEUR : asset.averageBuyPriceUSD;
+
+              const activePrice = isUSD ? (asset.currentPriceUSD || asset.currentPrice) : (asset.currentPriceEUR || asset.currentPrice);
+              const altPrice = isUSD ? asset.currentPriceEUR : asset.currentPriceUSD;
+
+              const activeInvested = isUSD ? (asset.totalInvestedUSD ?? asset.totalInvested) : (asset.totalInvestedEUR ?? asset.totalInvested);
+              const altInvested = isUSD ? asset.totalInvestedEUR : asset.totalInvestedUSD;
+
+              const activeValue = isUSD ? (asset.currentValueUSD ?? asset.currentValue) : (asset.currentValueEUR ?? asset.currentValue);
+              const altValue = isUSD ? asset.currentValueEUR : asset.currentValueUSD;
+
+              const activePnl = isUSD ? (asset.pnlUSD ?? asset.pnl) : (asset.pnlEUR ?? asset.pnl);
+              const altPnl = isUSD ? asset.pnlEUR : asset.pnlUSD;
+
+              const isProfit = activePnl >= 0;
+              const priceDecimals = activePrice < 1 ? 4 : (activePrice < 10 ? 3 : 2);
+              const avgBuyDecimals = activeAvgBuy < 1 ? 4 : (activeAvgBuy < 10 ? 3 : 2);
+              const altDecimals = (altPrice && altPrice < 1) ? 4 : 2;
 
               return (
                 <tr 
@@ -128,18 +167,22 @@ export const AssetList: React.FC<AssetListProps> = ({
                   {/* Avg Buy Price (DCA) */}
                   <td className="py-4 px-4 text-right font-mono text-slate-200">
                     <div className="font-medium text-indigo-300">
-                      {formatEUR(asset.averageBuyPriceEUR, avgBuyDecimals)}
+                      {formatActive(activeAvgBuy, avgBuyDecimals)}
                     </div>
-                    <div className="text-[11px] text-slate-400 font-sans">je {asset.symbol}</div>
+                    {altAvgBuy !== undefined && altAvgBuy > 0 && (
+                      <div className="text-[10px] text-slate-500 font-sans">
+                        ≈ {formatAlt(altAvgBuy, altDecimals)}
+                      </div>
+                    )}
                   </td>
 
                   {/* Current Price with quick edit */}
                   <td className="py-4 px-4 text-right font-mono text-slate-200">
                     <div className="flex items-center justify-end space-x-1.5 group/price">
-                      <span className="font-medium">{formatEUR(asset.currentPriceEUR, priceDecimals)}</span>
+                      <span className="font-medium">{formatActive(activePrice, priceDecimals)}</span>
                       {onEditPrice && (
                         <button
-                          onClick={() => onEditPrice(asset.symbol, asset.currentPriceEUR)}
+                          onClick={() => onEditPrice(asset.symbol, activePrice)}
                           title="Kurs manuell anpassen"
                           className="opacity-0 group-hover:opacity-100 p-1 hover:bg-slate-700 rounded text-slate-400 hover:text-indigo-400 transition-all"
                         >
@@ -147,16 +190,31 @@ export const AssetList: React.FC<AssetListProps> = ({
                         </button>
                       )}
                     </div>
+                    {altPrice !== undefined && altPrice > 0 && (
+                      <div className="text-[10px] text-slate-500 font-sans">
+                        ≈ {formatAlt(altPrice, altDecimals)}
+                      </div>
+                    )}
                   </td>
 
                   {/* Total Invested */}
                   <td className="py-4 px-4 text-right font-mono text-slate-300">
-                    {formatEUR(asset.totalInvestedEUR)}
+                    <div>{formatActive(activeInvested)}</div>
+                    {altInvested !== undefined && (
+                      <div className="text-[10px] text-slate-500 font-sans">
+                        ≈ {formatAlt(altInvested)}
+                      </div>
+                    )}
                   </td>
 
                   {/* Current Value */}
                   <td className="py-4 px-4 text-right font-mono font-bold text-white">
-                    {formatEUR(asset.currentValueEUR)}
+                    <div>{formatActive(activeValue)}</div>
+                    {altValue !== undefined && (
+                      <div className="text-[10px] text-slate-500 font-sans font-normal">
+                        ≈ {formatAlt(altValue)}
+                      </div>
+                    )}
                   </td>
 
                   {/* Profit / Loss */}
@@ -165,8 +223,13 @@ export const AssetList: React.FC<AssetListProps> = ({
                       {isProfit ? '+' : ''}{asset.pnlPercentage.toFixed(2)}%
                     </div>
                     <div className={`text-xs font-mono font-medium ${isProfit ? 'text-emerald-400/90' : 'text-rose-400/90'}`}>
-                      {isProfit ? '+' : ''}{formatEUR(asset.pnlEUR)}
+                      {isProfit ? '+' : ''}{formatActive(activePnl)}
                     </div>
+                    {altPnl !== undefined && (
+                      <div className="text-[10px] text-slate-500 font-sans">
+                        ≈ {altPnl >= 0 ? '+' : ''}{formatAlt(altPnl)}
+                      </div>
+                    )}
                   </td>
 
                   {/* Allocation % and progress bar */}

@@ -2,6 +2,8 @@ export type TransactionType = 'BUY' | 'SELL' | 'REWARD' | 'TRANSFER' | 'STAKE' |
 
 export type ExchangeSource = 'crypto_com' | 'binance' | 'kraken' | 'coinbase' | 'bitpanda' | 'manual' | 'generic' | 'other';
 
+export type PortfolioCurrency = 'EUR' | 'USD';
+
 export interface Transaction {
   id: string;
   timestamp: string; // ISO date string: YYYY-MM-DDTHH:mm:ssZ
@@ -13,6 +15,7 @@ export interface Transaction {
   receivedCurrency: string;
   receivedAmount: number;
   pricePerUnitEUR?: number;
+  pricePerUnitUSD?: number;
   nativeCurrency?: string;
   nativeAmount?: number;
   nativeAmountUSD?: number;
@@ -30,12 +33,24 @@ export interface AssetSummary {
   totalBought: number;
   totalSold: number;
   currentBalance: number;
+  currency?: PortfolioCurrency;
+  currencySymbol?: string;
+  totalInvested: number;
+  averageBuyPrice: number; // DCA
+  currentPrice: number;
+  currentValue: number;
+  pnl: number;
+  pnlPercentage: number;
   totalInvestedEUR: number;
   averageBuyPriceEUR: number; // DCA
   currentPriceEUR: number;
   currentValueEUR: number;
   pnlEUR: number;
-  pnlPercentage: number;
+  totalInvestedUSD?: number;
+  averageBuyPriceUSD?: number;
+  currentPriceUSD?: number;
+  currentValueUSD?: number;
+  pnlUSD?: number;
   firstBuyDate: string;
   lastBuyDate: string;
   transactionCount: number;
@@ -43,10 +58,17 @@ export interface AssetSummary {
 }
 
 export interface PortfolioTotals {
+  currency?: PortfolioCurrency;
+  currencySymbol?: string;
+  totalInvested?: number;
+  currentValue?: number;
+  totalPnl?: number;
+  totalPnlPercentage?: number;
+  eurUsdRate?: number;
   totalInvestedEUR: number;
   currentValueEUR: number;
   totalPnlEUR: number;
-  totalPnlPercentage: number;
+  totalPnlPercentageEUR: number;
   assetCount: number;
   transactionCount: number;
   topAssetSymbol: string;
@@ -90,6 +112,7 @@ export interface EmailNotificationSettings {
 
 export interface AppSettings {
   theme: ThemeMode;
+  currency?: PortfolioCurrency;
   user: UserProfile;
   email: EmailNotificationSettings;
   privacyMode: boolean; // hide balances with ***

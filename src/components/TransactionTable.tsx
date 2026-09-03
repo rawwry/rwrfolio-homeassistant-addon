@@ -117,6 +117,26 @@ export const TransactionTable: React.FC<TransactionTableProps> = ({
   const totalPages = Math.ceil(filtered.length / pageSize) || 1;
   const paginatedTransactions = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
+  const isUSD = currency === 'USD';
+
+  const formatActive = (val: number, decimals: number = 2) => {
+    return new Intl.NumberFormat(isUSD ? 'en-US' : 'de-DE', {
+      style: 'currency',
+      currency: isUSD ? 'USD' : 'EUR',
+      minimumFractionDigits: decimals,
+      maximumFractionDigits: decimals,
+    }).format(val);
+  };
+
+  const formatAlt = (val: number, decimals: number = 2) => {
+    return new Intl.NumberFormat(isUSD ? 'de-DE' : 'en-US', {
+      style: 'currency',
+      currency: isUSD ? 'EUR' : 'USD',
+      minimumFractionDigits: decimals,
+      maximumFractionDigits: decimals,
+    }).format(val);
+  };
+
   const formatEUR = (val: number, decimals: number = 2) => {
     return new Intl.NumberFormat('de-DE', {
       style: 'currency',
@@ -416,8 +436,26 @@ export const TransactionTable: React.FC<TransactionTableProps> = ({
             ) : (
               paginatedTransactions.map((tx) => {
                 const coinMeta = getCoinDetails(tx.receivedCurrency);
-                const unitPrice = tx.pricePerUnitEUR || (tx.spentAmount > 0 && tx.receivedAmount > 0 ? (tx.spentAmount / tx.receivedAmount) : 0);
-                const unitPriceDecimals = unitPrice < 1 ? 4 : (unitPrice < 10 ? 3 : 2);
+                
+                // Calculated unit prices
+                const eurRate = 1.08;
+                let spentActive = 0;
+                let spentAlt = 0;
+
+                if (tx.spentAmount > 0) {
+                  if (isUSD) {
+                    spentActive = tx.nativeAmountUSD || (tx.spentCurrency === 'USD' ? tx.spentAmount : tx.spentAmount * eurRate);
+                    spentAlt = tx.spentCurrency === 'EUR' ? tx.spentAmount : (tx.nativeAmountUSD ? tx.nativeAmountUSD / eurRate : tx.spentAmount / eurRate);
+                  } else {
+                    spentActive = tx.spentCurrency === 'EUR' ? tx.spentAmount : (tx.nativeAmount && tx.nativeCurrency === 'EUR' ? tx.nativeAmount : (tx.nativeAmountUSD ? tx.nativeAmountUSD / eurRate : tx.spentAmount / eurRate));
+                    spentAlt = tx.nativeAmountUSD || (tx.spentCurrency === 'USD' ? tx.spentAmount : tx.spentAmount * eurRate);
+                  }
+                }
+
+                const unitPriceActive = tx.receivedAmount > 0 && spentActive > 0 ? (spentActive / tx.receivedAmount) : 0;
+                const unitPriceAlt = tx.receivedAmount > 0 && spentAlt > 0 ? (spentAlt / tx.receivedAmount) : 0;
+                const unitPriceDecimals = unitPriceActive < 1 ? 4 : (unitPriceActive < 10 ? 3 : 2);
+                const altUnitPriceDecimals = unitPriceAlt < 1 ? 4 : (unitPriceAlt < 10 ? 3 : 2);
 
                 return (
                   <tr 
@@ -473,17 +511,13 @@ export const TransactionTable: React.FC<TransactionTableProps> = ({
 
                     {/* Spent / Invested */}
                     <td className="py-3.5 px-4 text-right font-mono font-medium text-slate-200">
-                      {tx.spentAmount > 0 ? (
+                      {spentActive > 0 ? (
                         <div>
-                          <span>
-                            {currency === 'USD'
-                              ? (tx.nativeAmountUSD ? `$${tx.nativeAmountUSD.toFixed(2)}` : (tx.spentCurrency === 'USD' ? `$${tx.spentAmount.toFixed(2)}` : formatEUR(tx.spentAmount)))
-                              : (tx.spentCurrency === 'USD' ? `$${tx.spentAmount.toFixed(2)}` : formatEUR(tx.spentAmount))}
-                          </span>
-                          {tx.nativeAmountUSD && tx.spentCurrency !== 'USD' && currency !== 'USD' && (
-                            <span className="text-[11px] text-slate-400 block font-sans">
-                              (≈ ${tx.nativeAmountUSD.toFixed(2)})
-                            </span>
+                          <div>{formatActive(spentActive)}</div>
+                          {spentAlt > 0 && (
+                            <div className="text-[10px] text-slate-500 font-sans">
+                              ≈ {formatAlt(spentAlt)}
+                            </div>
                           )}
                           {tx.spentCurrency !== 'EUR' && tx.spentCurrency !== 'USD' && (
                             <span className="text-xs text-slate-400 block font-sans">
@@ -498,17 +532,15 @@ export const TransactionTable: React.FC<TransactionTableProps> = ({
 
                     {/* Calculated Unit Price */}
                     <td className="py-3.5 px-4 text-right font-mono text-slate-300">
-                      {unitPrice > 0 ? (
+                      {unitPriceActive > 0 ? (
                         <div>
-                          <span className="text-indigo-300 font-medium">
-                            {currency === 'USD' && tx.pricePerUnitUSD
-                              ? `$${tx.pricePerUnitUSD.toFixed(unitPriceDecimals)}`
-                              : formatEUR(unitPrice, unitPriceDecimals)}
-                          </span>
-                          {currency === 'USD' && !tx.pricePerUnitUSD && (
-                            <span className="text-[10px] text-slate-400 block">
-                              {formatEUR(unitPrice, unitPriceDecimals)}
-                            </span>
+                          <div className="text-indigo-300 font-medium">
+                            {formatActive(unitPriceActive, unitPriceDecimals)}
+                          </div>
+                          {unitPriceAlt > 0 && (
+                            <div className="text-[10px] text-slate-500 font-sans">
+                              ≈ {formatAlt(unitPriceAlt, altUnitPriceDecimals)}
+                            </div>
                           )}
                         </div>
                       ) : (
